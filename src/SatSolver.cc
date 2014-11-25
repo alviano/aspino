@@ -56,6 +56,7 @@ void SatSolver::parse(gzFile in_) {
     }
     if(nVars() != vars)
         cerr << "WARNING! DIMACS header mismatch: wrong number of variables." << endl;
+    nInVars(min(vars, nVars()));
     if(count != clauses)
         cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl;
     inVars = nVars();
@@ -89,12 +90,8 @@ lbool SatSolver::solve(int n) {
         assert(status == l_True);
         if(++count == 1) printStatus();
         
-        // Extend & copy model:
-        model.growTo(nVars());
-        for (int i = 0; i < nVars(); i++) model[i] = value(i);
-        Minisat::SimpSolver::extendModel();
-        
         cout << "c Model " << count << endl;
+        copyModel();
         printModel();
         ret = l_True;
         if(--n == 0) break;
@@ -261,8 +258,17 @@ void SatSolver::printStatus() const {
     cout << "s " << (status == l_True ? "SATISFIABLE" : status == l_False ? "UNSATISFIABLE" : "INDETERMINATE") << endl;
 }
 
+void SatSolver::copyModel() {
+    // Extend & copy model:
+    model.growTo(nVars());
+    for (int i = 0; i < nVars(); i++) model[i] = value(i);
+    Minisat::SimpSolver::extendModel();
+}
+
 void SatSolver::printModel() const {
     if(status != l_True) return;
+    assert(model.size() >= nInVars());
+    cout << nInVars() << endl;
     cout << "v";
     for(int i = 0; i < nInVars(); i++)
         cout << " " << (model[i] == l_False ? "-" : "") << (i+1);

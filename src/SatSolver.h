@@ -37,6 +37,7 @@ public:
     virtual lbool solve();
     virtual lbool solve(int n);
     void printStatus() const;
+    void copyModel();
     void printModel() const;
     
     inline void nInVars(int value) { inVars = value; }

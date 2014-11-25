@@ -123,7 +123,6 @@ void MaxSatSolver::parse(gzFile in_) {
     }
     if(count != clauses)
         cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl;
-    inVars = nVars();
 }
 
 long MaxSatSolver::setAssumptions(long limit) {
@@ -174,8 +173,8 @@ lbool MaxSatSolver::solve() {
             ret = solve_(limit);
             assert(ret == l_True);
         }while(lastSoftLiteral < nVars());
-        cout << "o " << lowerbound << endl;
         cout << "s OPTIMUM FOUND" << endl;
+        copyModel();
         printModel();
         return l_True;
     }
@@ -205,6 +204,7 @@ lbool MaxSatSolver::solve_(long limit) {
             if(newupperbound < upperbound) {
                 trace(maxsat, 8, "Decrease upper bound to " << newupperbound);
                 upperbound = newupperbound;
+                cout << "c ub " << upperbound << endl;
                 cancelUntil(0);
             }
 
@@ -264,9 +264,8 @@ lbool MaxSatSolver::solve_(long limit) {
         trace(maxsat, 4, "Analyze conflict of weight " << limit);
         lowerbound += limit;
         trace(maxsat, 8, "Increase lower bound to " << lowerbound);
-//        cout << weights << endl;
+        cout << "o " << lowerbound << endl;
         (this->*corestrat)(limit);
-//        cout << weights << endl;
     }
 }
 
