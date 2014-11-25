@@ -1,0 +1,3287 @@
+diff -rupN glucose-syrup.orig/README glucose-syrup.new/README
+--- glucose-syrup.orig/README	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/README	1970-01-01 01:00:00.000000000 +0100
+@@ -1,24 +0,0 @@
+-Directory overview:
+-==================
+-
+-mtl/            Minisat Template Library
+-core/           A core version of the solver glucose (no main here)
+-simp/           An extended solver with simplification capabilities
+-parallel/       A multicore version of glucose
+-README
+-LICENSE
+-Changelog
+-
+-To build (release version: without assertions, statically linked, etc):
+-======================================================================
+-Like minisat....
+-
+-cd { simp | parallel }
+-make rs
+-
+-Usage:
+-======
+-
+-in simp directory:      ./glucose --help
+-
+-in parallel directory:  ./glucose-syrup --help
+\ No newline at end of file
+diff -rupN glucose-syrup.orig/core/Makefile glucose-syrup.new/core/Makefile
+--- glucose-syrup.orig/core/Makefile	2014-10-03 11:10:21.000000000 +0200
++++ glucose-syrup.new/core/Makefile	1970-01-01 01:00:00.000000000 +0100
+@@ -1,3 +0,0 @@
+-PHONY:
+-	@echo "** Careful ** Since 4.0 you have to use the simp or parallel directory only for typing make"
+-
+diff -rupN glucose-syrup.orig/core/Solver.cc glucose-syrup.new/core/Solver.cc
+--- glucose-syrup.orig/core/Solver.cc	2014-10-03 11:10:21.000000000 +0200
++++ glucose-syrup.new/core/Solver.cc	2014-11-24 17:29:02.807180000 +0100
+@@ -931,7 +931,7 @@ void Solver::uncheckedEnqueue(Lit p, CRe
+ CRef Solver::propagate() {
+     CRef confl = CRef_Undef;
+     int num_props = 0;
+-    int previousqhead = qhead;
++//    int previousqhead = qhead;
+     watches.cleanAll();
+     watchesBin.cleanAll();
+     unaryWatches.cleanAll();
+@@ -1259,7 +1259,7 @@ bool Solver::simplify() {
+ |    all variables are decision variables, this means that the clause set is satisfiable. 'l_False'
+ |    if the clause set is unsatisfiable. 'l_Undef' if the bound on number of conflicts is reached.
+ |________________________________________________________________________________________________@*/
+-lbool Solver::search(int nof_conflicts) {
++lbool Solver::search(int) {
+     assert(ok);
+     int backtrack_level;
+     int conflictC = 0;
+@@ -1453,7 +1453,7 @@ void Solver::printIncrementalStats() {
+ 
+ // NOTE: assumptions passed in member-variable 'assumptions'.
+ 
+-lbool Solver::solve_(bool do_simp, bool turn_off_simp) // Parameters are useless in core but useful for SimpSolver....
++lbool Solver::solve_(bool, bool) // Parameters are useless in core but useful for SimpSolver....
+ {
+ 
+     if(incremental && certifiedUNSAT) {
+@@ -1571,7 +1571,7 @@ void Solver::toDimacs(const char *file,
+     fclose(f);
+ }
+ 
+-void Solver::toDimacs(FILE* f, const vec<Lit>& assumps) {
++void Solver::toDimacs(FILE* f, const vec<Lit>&) {
+     // Handle case when solver is in contradictory state:
+     if (!ok) {
+         fprintf(f, "p cnf 1 2\n1 0\n-1 0\n");
+@@ -1694,9 +1694,9 @@ bool Solver::parallelImportClauses() {
+ }
+ 
+ 
+-void Solver::parallelExportUnaryClause(Lit p) {
++void Solver::parallelExportUnaryClause(Lit) {
+ }
+-void Solver::parallelExportClauseDuringSearch(Clause &c) {
++void Solver::parallelExportClauseDuringSearch(Clause &) {
+ }
+ 
+ bool Solver::parallelJobIsFinished() { 
+@@ -1704,5 +1704,5 @@ bool Solver::parallelJobIsFinished() {
+     return false;
+ }
+ 
+-void Solver::parallelImportClauseDuringConflictAnalysis(Clause &c,CRef confl) {
++void Solver::parallelImportClauseDuringConflictAnalysis(Clause &,CRef) {
+ }
+diff -rupN glucose-syrup.orig/mtl/Vec.h glucose-syrup.new/mtl/Vec.h
+--- glucose-syrup.orig/mtl/Vec.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/mtl/Vec.h	2014-11-24 17:24:33.774037000 +0100
+@@ -103,7 +103,7 @@ template<class T>
+ void vec<T>::capacity(int min_cap) {
+     if (cap >= min_cap) return;
+     int add = imax((min_cap - cap + 1) & ~1, ((cap >> 1) + 2) & ~1);   // NOTE: grow by approximately 3/2
+-    if (add > INT_MAX - cap || ((data = (T*)::realloc(data, (cap += add) * sizeof(T))) == NULL) && errno == ENOMEM)
++    if (add > INT_MAX - cap || (((data = (T*)::realloc(data, (cap += add) * sizeof(T))) == NULL) && errno == ENOMEM))
+         throw OutOfMemoryException();
+  }
+ 
+diff -rupN glucose-syrup.orig/mtl/config.mk glucose-syrup.new/mtl/config.mk
+--- glucose-syrup.orig/mtl/config.mk	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/mtl/config.mk	1970-01-01 01:00:00.000000000 +0100
+@@ -1,6 +0,0 @@
+-##
+-##  This file is for system specific configurations. For instance, on
+-##  some systems the path to zlib needs to be added. Example:
+-##
+-##  CFLAGS += -I/usr/local/include
+-##  LFLAGS += -L/usr/local/lib
+diff -rupN glucose-syrup.orig/mtl/template.mk glucose-syrup.new/mtl/template.mk
+--- glucose-syrup.orig/mtl/template.mk	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/mtl/template.mk	1970-01-01 01:00:00.000000000 +0100
+@@ -1,107 +0,0 @@
+-##
+-##  Template makefile for Standard, Profile, Debug, Release, and Release-static versions
+-##
+-##    eg: "make rs" for a statically linked release version.
+-##        "make d"  for a debug version (no optimizations).
+-##        "make"    for the standard version (optimized, but with debug information and assertions active)
+-
+-PWD        = $(shell pwd)
+-EXEC      ?= $(notdir $(PWD))
+-
+-CSRCS      = $(wildcard $(PWD)/*.cc) 
+-DSRCS      = $(foreach dir, $(DEPDIR), $(filter-out $(MROOT)/$(dir)/Main.cc, $(wildcard $(MROOT)/$(dir)/*.cc)))
+-CHDRS      = $(wildcard $(PWD)/*.h)
+-COBJS      = $(CSRCS:.cc=.o) $(DSRCS:.cc=.o)
+-
+-PCOBJS     = $(addsuffix p,  $(COBJS))
+-DCOBJS     = $(addsuffix d,  $(COBJS))
+-RCOBJS     = $(addsuffix r,  $(COBJS))
+-
+-#CXX        ?= /usr/gcc-/bin/g++-4.7.0
+-CXX       ?= g++
+-CFLAGS    ?= -Wall -Wno-parentheses -std=c++11
+-LFLAGS    ?= -Wall -lpthread 
+-
+-COPTIMIZE ?= -O3
+-
+-CFLAGS    += -I$(MROOT) -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS
+-LFLAGS    += -lz
+-
+-.PHONY : s p d r rs clean 
+-
+-s:	$(EXEC)
+-p:	$(EXEC)_profile
+-d:	$(EXEC)_debug
+-r:	$(EXEC)_release
+-rs:	$(EXEC)_static
+-
+-libs:	lib$(LIB)_standard.a
+-libp:	lib$(LIB)_profile.a
+-libd:	lib$(LIB)_debug.a
+-libr:	lib$(LIB)_release.a
+-
+-## Compile options
+-%.o:			CFLAGS +=$(COPTIMIZE) -g -D DEBUG
+-%.op:			CFLAGS +=$(COPTIMIZE) -pg -g -D NDEBUG
+-%.od:			CFLAGS +=-O0 -g -D DEBUG
+-%.or:			CFLAGS +=$(COPTIMIZE) -g -D NDEBUG
+-
+-## Link options
+-$(EXEC):		LFLAGS += -g
+-$(EXEC)_profile:	LFLAGS += -g -pg
+-$(EXEC)_debug:		LFLAGS += -g
+-#$(EXEC)_release:	LFLAGS += ...
+-$(EXEC)_static:		LFLAGS += --static
+-
+-## Dependencies
+-$(EXEC):		$(COBJS)
+-$(EXEC)_profile:	$(PCOBJS)
+-$(EXEC)_debug:		$(DCOBJS)
+-$(EXEC)_release:	$(RCOBJS)
+-$(EXEC)_static:		$(RCOBJS)
+-
+-lib$(LIB)_standard.a:	$(filter-out */Main.o,  $(COBJS))
+-lib$(LIB)_profile.a:	$(filter-out */Main.op, $(PCOBJS))
+-lib$(LIB)_debug.a:	$(filter-out */Main.od, $(DCOBJS))
+-lib$(LIB)_release.a:	$(filter-out */Main.or, $(RCOBJS))
+-
+-
+-## Build rule
+-%.o %.op %.od %.or:	%.cc
+-	@echo Compiling: $(subst $(MROOT)/,,$@)
+-	@$(CXX) $(CFLAGS) -c -o $@ $<
+-
+-## Linking rules (standard/profile/debug/release)
+-$(EXEC) $(EXEC)_profile $(EXEC)_debug $(EXEC)_release $(EXEC)_static:
+-	@echo Linking: "$@ ( $(foreach f,$^,$(subst $(MROOT)/,,$f)) )"
+-	@$(CXX) $^ $(LFLAGS) -o $@
+-
+-## Library rules (standard/profile/debug/release)
+-lib$(LIB)_standard.a lib$(LIB)_profile.a lib$(LIB)_release.a lib$(LIB)_debug.a:
+-	@echo Making library: "$@ ( $(foreach f,$^,$(subst $(MROOT)/,,$f)) )"
+-	@$(AR) -rcsv $@ $^
+-
+-## Library Soft Link rule:
+-libs libp libd libr:
+-	@echo "Making Soft Link: $^ -> lib$(LIB).a"
+-	@ln -sf $^ lib$(LIB).a
+-
+-## Clean rule
+-clean:
+-	@rm -f $(EXEC) $(EXEC)_profile $(EXEC)_debug $(EXEC)_release $(EXEC)_static \
+-	  $(COBJS) $(PCOBJS) $(DCOBJS) $(RCOBJS) *.core depend.mk 
+-
+-## Make dependencies
+-depend.mk: $(CSRCS) $(CHDRS)
+-	@echo Making dependencies
+-	@$(CXX) $(CFLAGS) -I$(MROOT) \
+-	   $(CSRCS) -MM | sed 's|\(.*\):|$(PWD)/\1 $(PWD)/\1r $(PWD)/\1d $(PWD)/\1p:|' > depend.mk
+-	@for dir in $(DEPDIR); do \
+-	      if [ -r $(MROOT)/$${dir}/depend.mk ]; then \
+-		  echo Depends on: $${dir}; \
+-		  cat $(MROOT)/$${dir}/depend.mk >> depend.mk; \
+-	      fi; \
+-	  done
+-
+--include $(MROOT)/mtl/config.mk
+--include depend.mk
+diff -rupN glucose-syrup.orig/parallel/ClausesBuffer.cc glucose-syrup.new/parallel/ClausesBuffer.cc
+--- glucose-syrup.orig/parallel/ClausesBuffer.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/ClausesBuffer.cc	1970-01-01 01:00:00.000000000 +0100
+@@ -1,235 +0,0 @@
+-/**********************************************************************************[ClausesBuffer.cc]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-/* ClausesBuffer
+- *
+- * This class is responsible for exchanging clauses between threads.
+- * It is based on a fixed-length FIFO array of literals.
+- * If the FIFO is full, then old clauses are removed (even if it was not yet sent to all threads)
+- *
+- * a clause " l1 l2 l3" is pushed in the FIFO with the following 6 unsigned integers
+- * 3 nseen origin l1 l2 l3
+- * + 3 is the size of the pushed clause
+- * + nseen is the number of thread which imported this clause (initialized with nthreads-1)
+- *       (when set to 0, the clause is removed from the fifo)
+- * + origin is the thread id of the thread which added this clause to the fifo
+- * + l1 l2 l3 are the literals of the clause
+- *
+- * **********************************************************************************************
+- * **CAREFUL** This class is not thread-safe. In glucose-syrup, the SharedCompanion is 
+- * responsible for ensuring atomicity of main functions
+- * **********************************************************************************************
+- *
+- * */
+-
+-#include "parallel/ClausesBuffer.h"
+-
+-//=================================================================================================
+-
+-using namespace Glucose;
+-
+-extern BoolOption opt_whenFullRemoveOlder;
+-extern IntOption  opt_fifoSizeByCore;
+-
+-// index : size clause
+-// index + 1 : nbSeen
+-// index + 2 : threadId
+-// index + 3 : .. index + 3 + size : Lit of clause
+-ClausesBuffer::ClausesBuffer(int _nbThreads, unsigned int _maxsize) : first(0), last(_maxsize-1),  
+-    maxsize(_maxsize), queuesize(0), 
+-    removedClauses(0),
+-    forcedRemovedClauses(0), nbThreads(_nbThreads), 
+-    whenFullRemoveOlder(opt_whenFullRemoveOlder), fifoSizeByCore(opt_fifoSizeByCore) {
+-	lastOfThread.growTo(_nbThreads);
+-	for(int i=0;i<nbThreads;i++) lastOfThread[i] = _maxsize-1;
+-	elems.growTo(maxsize);
+-} 
+-
+-ClausesBuffer::ClausesBuffer() : first(0), last(0), maxsize(0), queuesize(0), removedClauses(0), forcedRemovedClauses(0), nbThreads(0),
+-                                 whenFullRemoveOlder(opt_whenFullRemoveOlder), fifoSizeByCore(opt_fifoSizeByCore) {}
+-
+-void ClausesBuffer::setNbThreads(int _nbThreads) {
+-    unsigned int _maxsize = fifoSizeByCore*_nbThreads;
+-    last = _maxsize -1;
+-    maxsize = _maxsize;
+-    nbThreads = _nbThreads;
+-    lastOfThread.growTo(_nbThreads);
+-    for(int i=0;i<nbThreads;i++) lastOfThread[i] = _maxsize-1;
+-    elems.growTo(maxsize);
+-}
+-
+-uint32_t ClausesBuffer::getCap() {
+-    return elems.capacity();
+-}
+-inline unsigned int ClausesBuffer::nextIndex(unsigned int i) {
+-    i++;
+-    if (i == maxsize)
+-	return 0;
+-    return i;
+-}
+-
+-inline unsigned int ClausesBuffer::addIndex(unsigned int i, unsigned int a) {
+-    i += a;
+-    if (i >= maxsize)
+-	return i - maxsize;
+-    return i;
+-}
+-
+-void ClausesBuffer::removeLastClause() {
+-    assert(queuesize > 0);
+-    do {
+-	unsigned int size = (unsigned int) elems[nextIndex(last)];
+-	unsigned int nextlast = addIndex(last, size+headerSize);
+-
+-	for(int i=0;i<nbThreads;i++) {
+-	    if (lastOfThread[i] == last)
+-		lastOfThread[i] = nextlast;
+-	}
+-
+-	// printf("Removing clause starting at %d of size %d.\n",nextIndex(last), size);
+-	for(unsigned int i=0;i<size+headerSize;i++) {
+-	    last = nextIndex(last);
+-	    assert(queuesize > 0);
+-	    queuesize --;
+-	}	
+-	removedClauses ++;
+-	assert(last >= 0);
+-	assert(last < maxsize);
+-	assert(last == nextlast);
+-    } while (queuesize > 0 && (elems[addIndex(last,2)] == 0)); 	
+-
+-}
+-
+-
+-// Pushes a single uint to the fifo
+-inline void ClausesBuffer::noCheckPush(uint32_t x) {
+-    elems[first] = x;
+-    first = nextIndex(first);
+-}
+-
+-// Pops a single uint from the fifo
+-inline uint32_t ClausesBuffer::noCheckPop(uint32_t & index) {
+-    index = nextIndex(index);
+-    uint32_t ret = elems[index];
+-    return ret;
+-}
+-
+-
+-
+-// Return true if the clause was succesfully added
+-bool ClausesBuffer::pushClause(int threadId, Clause & c) {
+-    if (!whenFullRemoveOlder && (queuesize + c.size() + headerSize >= maxsize))
+-	return false; // We need to remove some old clauses
+-    while (queuesize + c.size() + headerSize >= maxsize) { // We need to remove some old clauses
+-	forcedRemovedClauses ++;
+-	removeLastClause();
+-	assert(queuesize > 0);
+-    }
+-    noCheckPush(c.size());
+-    noCheckPush(nbThreads>1?nbThreads-1:1);
+-    noCheckPush(threadId);
+-    for(int i=0;i<c.size();i++)
+-	noCheckPush(toInt(c[i]));
+-    queuesize += c.size()+headerSize;
+-    return true;
+-    //  printf(" -> (%d, %d)\n", first, last);
+-}
+-
+-bool ClausesBuffer::getClause(int threadId, int & threadOrigin, vec<Lit> & resultClause,  bool firstFound) {
+-    assert(lastOfThread.size() > threadId);
+-    unsigned int thislast = lastOfThread[threadId];
+-    assert(!firstFound || thislast == last); // FIXME: Gilles has this assertion on his cluster
+-
+-    // Early exiting
+-    if (nextIndex(thislast) == first) return false;
+-
+-    if ( ( thislast < last && last < first) ||
+-	    ( first < thislast && thislast < last ) ||
+-	    ( last < first && first < thislast) ) {
+-	// Special case where last has moved and lastOfThread[threadId] is no more valid (is behind)
+-	thislast = last; 
+-    }
+-    assert(!firstFound);
+-    // Go to next clause for this thread id
+-    if (!firstFound) { 
+-	while (nextIndex(thislast) != first && elems[addIndex(thislast,3)] == ((unsigned int)threadId)) { // 3 = 2 + 1 
+-	    thislast = addIndex(thislast, elems[nextIndex(thislast)] + headerSize); // 
+-	    assert(thislast >= 0);
+-	    assert(thislast < maxsize);
+-	}
+-	assert(nextIndex(thislast)==first || elems[addIndex(thislast,3)] != (unsigned int)threadId);
+-    }
+-
+-    if (nextIndex(thislast) == first) {
+-	lastOfThread[threadId] = thislast;
+-	return false;
+-    }  
+-    assert(elems[addIndex(thislast,3)] != ((unsigned int) threadId));
+-    unsigned int previouslast = thislast;
+-    bool removeAfter = false;
+-    int csize = noCheckPop(thislast);
+-    removeAfter = (--elems[addIndex(thislast,1)] == 0); // We are sure this is not one of our own clause
+-    thislast = nextIndex(thislast); // Skips the removeAfter fieldr
+-    threadOrigin = noCheckPop(thislast);
+-    assert(threadOrigin != threadId);
+-    resultClause.clear();
+-    for(int i=0;i<csize;i++) {
+-	resultClause.push(toLit(noCheckPop(thislast)));
+-    }
+-    if (last == previouslast && removeAfter) {
+-	removeLastClause();
+-	thislast = last;
+-    }
+-    lastOfThread[threadId] = thislast;
+-    return true;
+-}
+-
+-
+-//=================================================================================================
+-
+diff -rupN glucose-syrup.orig/parallel/ClausesBuffer.h glucose-syrup.new/parallel/ClausesBuffer.h
+--- glucose-syrup.orig/parallel/ClausesBuffer.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/ClausesBuffer.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,114 +0,0 @@
+-/***************************************************************************************[ClausesBuffer.h]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#ifndef ClausesBuffer_h 
+-#define ClausesBuffer_h
+-
+-#include "mtl/Vec.h"
+-#include "core/SolverTypes.h"
+-#include "core/Solver.h"
+-
+-//=================================================================================================
+-
+-namespace Glucose {
+-    // index : size clause
+-    // index + 1 : nbSeen
+-    // index + 2 : threadId
+-    // index + 3 : .. index + 3 + size : Lit of clause
+-    class ClausesBuffer {
+-	vec<uint32_t>  elems;
+-	unsigned int     first;
+-	unsigned int	 last;
+-	unsigned int     maxsize;
+-	unsigned int     queuesize; // Number of current elements (must be < maxsize !)
+-	unsigned int     removedClauses;
+-	unsigned int     forcedRemovedClauses;
+-        static const int  headerSize = 3;
+-	int       nbThreads;
+-	bool      whenFullRemoveOlder;
+-	unsigned int fifoSizeByCore;
+-	vec<unsigned int> lastOfThread; // Last value for a thread 
+-
+-	public:
+-	ClausesBuffer(int _nbThreads, unsigned int _maxsize);
+-	ClausesBuffer();
+-
+-	void setNbThreads(int _nbThreads);
+-	unsigned int nextIndex(unsigned int i);
+-	unsigned int addIndex(unsigned int i, unsigned int a); 
+-	void removeLastClause(); 
+-	   
+-	void noCheckPush(uint32_t x);
+-	uint32_t noCheckPop(unsigned int & index);
+-
+-	// Return true if the clause was succesfully added
+-        bool pushClause(int threadId, Clause & c);
+-        bool getClause(int threadId, int & threadOrigin, vec<Lit> & resultClause, bool firstFound = false); 
+-	
+-	int maxSize() const {return maxsize;}
+-        uint32_t getCap();
+-	void growTo(int size) {
+-	    assert(0); // Not implemented (essentially for efficiency reasons)
+-	    elems.growTo(size); 
+-	    first=0; maxsize=size; queuesize = 0;last = 0;
+-	    for(int i=0;i<size;i++) elems[i]=0; 
+-	}
+-
+-	void fastclear() {first = 0; last = 0; queuesize=0; } 
+-
+-	int  size(void)    { return queuesize; }
+-
+-	void clear(bool dealloc = false)   { elems.clear(dealloc); first = 0; maxsize=0; queuesize=0;}
+-	inline  int  toInt     (Lit p)              { return p.x; } 
+-
+-    };
+-}
+-//=================================================================================================
+-
+-#endif
+diff -rupN glucose-syrup.orig/parallel/Main.cc glucose-syrup.new/parallel/Main.cc
+--- glucose-syrup.orig/parallel/Main.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/Main.cc	1970-01-01 01:00:00.000000000 +0100
+@@ -1,254 +0,0 @@
+-/***************************************************************************************[Main.cc]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#include <errno.h>
+-
+-#include <signal.h>
+-#include <zlib.h>
+-
+-
+-#include "utils/System.h"
+-#include "utils/ParseUtils.h"
+-#include "utils/Options.h"
+-#include "core/Dimacs.h"
+-#include "core/SolverTypes.h"
+-
+-#include "simp/SimpSolver.h"
+-#include "parallel/ParallelSolver.h"
+-#include "parallel/MultiSolvers.h"
+-
+-using namespace Glucose;
+-
+-
+-
+-static MultiSolvers* pmsolver;
+-
+-// Terminate by notifying the solver and back out gracefully. This is mainly to have a test-case
+-// for this feature of the Solver as it may take longer than an immediate call to '_exit()'.
+-//static void SIGINT_interrupt(int signum) { pmsolver->interrupt(); }
+-
+-
+-// Note that '_exit()' rather than 'exit()' has to be used. The reason is that 'exit()' calls
+-// destructors and may cause deadlocks if a malloc/free function happens to be running (these
+-// functions are guarded by locks for multithreaded use).
+-static void SIGINT_exit(int signum) {
+-    printf("\n"); printf("*** INTERRUPTED ***\n");
+-    if (pmsolver->verbosity() > 0){
+-        pmsolver->printFinalStats();
+-        printf("\n"); printf("*** INTERRUPTED ***\n"); }
+-    _exit(1); }
+-
+-
+-//=================================================================================================
+-// Main:
+-
+-
+-int main(int argc, char** argv)
+-{
+-    double realTimeStart = realTime();
+-  printf("c\nc This is glucose-syrup 4.0 (glucose in many threads) --  based on MiniSAT (Many thanks to MiniSAT team)\nc\n");
+-    try {
+-        setUsageHelp("c USAGE: %s [options] <input-file> <result-output-file>\n\n  where input may be either in plain or gzipped DIMACS.\n");
+-        // printf("This is MiniSat 2.0 beta\n");
+-        
+-#if defined(__linux__)
+-        fpu_control_t oldcw, newcw;
+-        _FPU_GETCW(oldcw); newcw = (oldcw & ~_FPU_EXTENDED) | _FPU_DOUBLE; _FPU_SETCW(newcw);
+-        printf("c WARNING: for repeatability, setting FPU to use double precision\n");
+-#endif
+-        // Extra options:
+-        //
+-        IntOption    verb   ("MAIN", "verb",   "Verbosity level (0=silent, 1=some, 2=more).", 1, IntRange(0, 2));
+-        BoolOption   mod   ("MAIN", "model",   "show model.", false);
+-        IntOption    vv  ("MAIN", "vv",   "Verbosity every vv conflicts", 10000, IntRange(1,INT32_MAX));
+-        IntOption    cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, IntRange(0, INT32_MAX));
+-        IntOption    mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, IntRange(0, INT32_MAX));
+-        
+-        parseOptions(argc, argv, true);
+-
+-	MultiSolvers msolver;
+-        pmsolver = & msolver;
+-        msolver.setVerbosity(verb);
+-        msolver.setVerbEveryConflicts(vv);
+-        msolver.setShowModel(mod);
+-
+-        double initial_time = cpuTime();
+-
+-	        // Use signal handlers that forcibly quit until the solver will be able to respond to
+-        // interrupts:
+-	signal(SIGINT, SIGINT_exit);
+-        signal(SIGXCPU,SIGINT_exit);
+-
+-        // Set limit on CPU-time:
+-        if (cpu_lim != INT32_MAX){
+-            rlimit rl;
+-            getrlimit(RLIMIT_CPU, &rl);
+-            if (rl.rlim_max == RLIM_INFINITY || (rlim_t)cpu_lim < rl.rlim_max){
+-                rl.rlim_cur = cpu_lim;
+-                if (setrlimit(RLIMIT_CPU, &rl) == -1)
+-                    printf("c WARNING! Could not set resource limit: CPU-time.\n");
+-            } }
+-
+-        // Set limit on virtual memory:
+-        if (mem_lim != INT32_MAX){
+-            rlim_t new_mem_lim = (rlim_t)mem_lim * 1024*1024;
+-            rlimit rl;
+-            getrlimit(RLIMIT_AS, &rl);
+-            if (rl.rlim_max == RLIM_INFINITY || new_mem_lim < rl.rlim_max){
+-                rl.rlim_cur = new_mem_lim;
+-                if (setrlimit(RLIMIT_AS, &rl) == -1)
+-                    printf("c WARNING! Could not set resource limit: Virtual memory.\n");
+-            } }
+-        
+-        if (argc == 1)
+-            printf("c Reading from standard input... Use '--help' for help.\n");
+-        
+-        gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
+-        if (in == NULL)
+-            printf("c ERROR! Could not open file: %s\n", argc == 1 ? "<stdin>" : argv[1]), exit(1);
+-        
+-        if (msolver.verbosity() > 0){
+-            printf("c ========================================[ Problem Statistics ]===========================================\n");
+-            printf("c |                                                                                                       |\n"); }
+-        
+-        parse_DIMACS(in, msolver);
+-        gzclose(in);
+-        
+-
+-	
+-        FILE* res = (argc >= 3) ? fopen(argv[argc-1], "wb") : NULL;
+-
+-        if (msolver.verbosity() > 0){
+-            printf("c |  Number of variables:  %12d                                                                   |\n", msolver.nVars());
+-            printf("c |  Number of clauses:    %12d                                                                   |\n", msolver.nClauses()); }
+-        
+-        double parsed_time = cpuTime();
+-        if (msolver.verbosity() > 0){
+-            printf("c |  Parse time:           %12.2f s                                                                 |\n", parsed_time - initial_time);
+-            printf("c |                                                                                                       |\n"); }
+- 
+-        // Change to signal-handlers that will only notify the solver and allow it to terminate
+-        // voluntarily:
+-        //signal(SIGINT, SIGINT_interrupt);
+-        //signal(SIGXCPU,SIGINT_interrupt);
+- 
+-        
+-	int ret2 = msolver.simplify();    	
+-        if(ret2) 
+-	   msolver.eliminate();
+-        double simplified_time = cpuTime();
+-        if (msolver.verbosity() > 0){
+-            printf("c |  Simplification time:  %12.2f s                                                                 |\n", simplified_time - parsed_time);
+-            printf("c |                                                                                                       |\n"); }
+-
+-        if (!ret2 || !msolver.okay()){
+-            //if (S.certifiedOutput != NULL) fprintf(S.certifiedOutput, "0\n"), fclose(S.certifiedOutput);
+-            if (res != NULL) fprintf(res, "UNSAT\n"), fclose(res);
+-            if (msolver.verbosity() > 0){
+-	        printf("c =========================================================================================================\n");
+-                printf("Solved by unit propagation\n"); 
+-		printf("c real time : %g s\n", realTime() - realTimeStart);
+-		printf("c cpu time  : %g s\n", cpuTime());
+-                printf("\n"); }
+-            printf("s UNSATISFIABLE\n");
+-            exit(20);
+-        }
+-
+-      //  vec<Lit> dummy;
+-        lbool ret = msolver.solve();
+-	
+-	
+-        printf("c\n");
+-    	printf("c real time : %g s\n", realTime() - realTimeStart);
+-	printf("c cpu time  : %g s\n", cpuTime());
+-        if (msolver.verbosity() > 0){
+-            msolver.printFinalStats();
+-            printf("\n"); }
+-
+-	//-------------- Result is put in a external file
+-     	/* I must admit I have to print the model of one thread... But which one? FIXME !!
+-	  if (res != NULL){  
+-	  if (ret == l_True){
+-	    fprintf(res, "SAT\n");
+-	    for (int i = 0; i < S.nVars(); i++)
+-	      if (S.model[i] != l_Undef)
+-		fprintf(res, "%s%s%d", (i==0)?"":" ", (S.model[i]==l_True)?"":"-", i+1);
+-	    fprintf(res, " 0\n");
+-	  }else if (ret == l_False)
+-	    fprintf(res, "UNSAT\n");
+-	  else
+-	    fprintf(res, "INDET\n");
+-	  fclose(res);
+-	
+-	//-------------- Want certified output
+-        } else { 
+-	*/
+-	  printf(ret == l_True ? "s SATISFIABLE\n" : ret == l_False ? "s UNSATISFIABLE\n" : "s INDETERMINATE\n");
+-	  
+-	  if(msolver.getShowModel() && ret==l_True) {
+-	    printf("v ");
+-	    for (int i = 0; i < msolver.model.size() ; i++)
+-	      if (msolver.model[i] != l_Undef)
+-		printf("%s%s%d", (i==0)?"":" ", (msolver.model[i]==l_True)?"":"-", i+1);
+-	    printf(" 0\n");
+-	  }
+-
+-     
+-    
+-#ifdef NDEBUG
+-        exit(ret == l_True ? 10 : ret == l_False ? 20 : 0);     // (faster than "return", which will invoke the destructor for 'Solver')
+-#else
+-        return (ret == l_True ? 10 : ret == l_False ? 20 : 0);
+-#endif
+-    } catch (OutOfMemoryException&){
+-      printf("c ===================================================================================================\n");
+-        printf("INDETERMINATE\n");
+-        exit(0);
+-    }
+-}
+diff -rupN glucose-syrup.orig/parallel/Makefile glucose-syrup.new/parallel/Makefile
+--- glucose-syrup.orig/parallel/Makefile	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/Makefile	1970-01-01 01:00:00.000000000 +0100
+@@ -1,4 +0,0 @@
+-EXEC      = glucose-syrup
+-DEPDIR    = mtl utils core simp
+-MROOT = $(PWD)/..
+-include $(MROOT)/mtl/template.mk
+diff -rupN glucose-syrup.orig/parallel/MultiSolvers.cc glucose-syrup.new/parallel/MultiSolvers.cc
+--- glucose-syrup.orig/parallel/MultiSolvers.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/MultiSolvers.cc	1970-01-01 01:00:00.000000000 +0100
+@@ -1,543 +0,0 @@
+-/***************************************************************************************[MultiSolvers.cc]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#include <pthread.h>
+-#include "parallel/MultiSolvers.h"
+-#include "mtl/Sort.h"
+-#include "utils/System.h"
+-#include "simp/SimpSolver.h"
+-#include <errno.h>
+-#include <string.h>
+-#include "parallel/SolverConfiguration.h"
+-
+-using namespace Glucose;
+-
+-extern const char* _parallel ;
+-extern const char* _cunstable;
+-// Options at the parallel solver level
+-static IntOption opt_nbsolversmultithreads (_parallel, "nthreads", "Number of core threads for syrup (0 for automatic)", 0);
+-static IntOption opt_maxnbsolvers (_parallel, "maxnbthreads", "Maximum number of core threads to ask for (when nbthreads=0)", 4);
+-static IntOption opt_maxmemory    (_parallel, "maxmemory", "Maximum memory to use (in Mb, 0 for no software limit)", 3000);
+-static IntOption opt_statsInterval (_parallel, "statsinterval", "Seconds (real time) between two stats reports", 5);
+-//
+-// Shared with ClausesBuffer.cc
+-BoolOption opt_whenFullRemoveOlder (_parallel, "removeolder", "When the FIFO for exchanging clauses between threads is full, remove older clauses", false);
+-IntOption opt_fifoSizeByCore(_parallel, "fifosize", "Size of the FIFO structure for exchanging clauses between threads, by threads", 100000);
+-//
+-// Shared options with Solver.cc 
+-BoolOption    opt_dontExportDirectReusedClauses (_cunstable, "reusedClauses",    "Don't export directly reused clauses", false);
+-BoolOption    opt_plingeling (_cunstable, "plingeling",    "plingeling strategy for sharing clauses (exploratory feature)", false);
+-
+-#include <sys/time.h>
+-#include <sys/resource.h>
+-#include <unistd.h>
+-
+-static inline double cpuTime(void) {
+-    struct rusage ru;
+-    getrusage(RUSAGE_SELF, &ru);
+-return (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec / 1000000; }
+-
+-
+-void MultiSolvers::informEnd(lbool res) {
+-  result = res;
+-  pthread_cond_broadcast(&cfinished);
+-}
+-
+-MultiSolvers::MultiSolvers(ParallelSolver *s):
+-  ok (true)
+-  , maxnbthreads(4), nbthreads(opt_nbsolversmultithreads), nbsolvers(opt_nbsolversmultithreads)
+-  , nbcompanions(4), nbcompbysolver(2)
+-  , allClonesAreBuilt(0)
+-  , showModel(false)
+-  , winner(-1)
+-  , var_decay(1 / 0.95), clause_decay(1 / 0.999),cla_inc(1), var_inc(1)
+-  , random_var_freq(0.02)
+-  , restart_first(100), restart_inc(1.5)
+-  , learntsize_factor((double)1/(double)3), learntsize_inc(1.1)
+-  , expensive_ccmin(true)
+-  , polarity_mode    (polarity_false)
+-  , maxmemory(opt_maxmemory), maxnbsolvers(opt_maxnbsolvers)
+-  , verb(0) , verbEveryConflicts(10000)
+-  , numvar(0), numclauses(0)
+-
+-{
+-    result = l_Undef;
+-    SharedCompanion *sc = new SharedCompanion();
+-    this->sharedcomp = sc;
+-
+-    // Generate only solver 0.
+-    // It loads the formula
+-    // All others solvers are clone of this one
+-    solvers.push(s);
+-    s->verbosity = 0; // No reportf in solvers... All is done in MultiSolver
+-    s->setThreadNumber(0);
+-    //s->belongsto = this;
+-    s->sharedcomp = sc;
+-    sc->addSolver(s);
+-    assert(solvers[0]->threadNumber() == 0);
+-
+-    pthread_mutex_init(&m,NULL);  //PTHREAD_MUTEX_INITIALIZER;
+-    pthread_mutex_init(&mfinished,NULL); //PTHREAD_MUTEX_INITIALIZER;
+-    pthread_cond_init(&cfinished,NULL);
+-
+-    if (nbsolvers > 0 ) 
+-	fprintf(stdout,"c %d solvers engines and 1 companion as a blackboard created.\n", nbsolvers);
+-}
+-
+-MultiSolvers::MultiSolvers() : MultiSolvers(new ParallelSolver(-1)) {
+-
+-}
+-
+-MultiSolvers::~MultiSolvers()
+-{}
+-
+-/**
+- * Generate All solvers
+- */
+-
+-void MultiSolvers::generateAllSolvers() {
+-    assert(solvers[0] != NULL);
+-    assert(allClonesAreBuilt==0);
+-
+-    for(int i=1;i<nbsolvers;i++) {
+-	ParallelSolver *s  = (ParallelSolver*)solvers[0]->clone();
+-	solvers.push(s);
+-	s->verbosity = 0; // No reportf in solvers... All is done in MultiSolver
+-	s->setThreadNumber(i);
+-	s->sharedcomp =   this->sharedcomp;
+-	this->sharedcomp->addSolver(s);
+-	assert(solvers[i]->threadNumber() == i);
+-    }
+-
+-    adjustParameters(); 
+-
+-    allClonesAreBuilt = 1;
+-}
+-
+-/**
+- * Choose solver for threads i (if no given in command line see above)
+- */
+-
+-
+-ParallelSolver* MultiSolvers::retrieveSolver(int i) {
+-    return new ParallelSolver(i);
+-}
+-
+-Var MultiSolvers::newVar(bool sign, bool dvar)
+-{
+-  assert(solvers[0] != NULL);
+-  numvar++;
+-  int v;
+-  sharedcomp->newVar(sign);
+-  if(!allClonesAreBuilt) { // At the beginning we want to generate only solvers 0
+-    v = solvers[0]->newVar(sign,dvar);
+-    assert(numvar == v+1); // Just a useless check
+-  } else {
+-      for(int i=0;i<nbsolvers;i++) {
+-	  v = solvers[i]->newVar(sign,dvar);
+-      }
+-  }
+-  return numvar;
+-}
+-
+-bool MultiSolvers::addClause_(vec<Lit>&ps) {
+-  assert(solvers[0] != NULL); // There is at least one solver.
+-  // Check if clause is satisfied and remove false/duplicate literals:
+-  if (!okay())  return false;
+-
+-  sort(ps);
+-  Lit p; int i, j;
+-  for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
+-    if (solvers[0]->value(ps[i]) == l_True || ps[i] == ~p)
+-      return true;
+-    else if (solvers[0]->value(ps[i]) != l_False && ps[i] != p)
+-      ps[j++] = p = ps[i];
+-  ps.shrink(i - j);
+-  
+-  
+-  if (ps.size() == 0) {
+-    return ok = false;
+-  }
+-  else if (ps.size() == 1){
+-    assert(solvers[0]->value(ps[0]) == l_Undef); // TODO : Passes values to all threads
+-    solvers[0]->uncheckedEnqueue(ps[0]);
+-    if(!allClonesAreBuilt) {
+-	return ok = ( (solvers[0]->propagate()) == CRef_Undef); // checks only main solver here for propagation constradiction
+-    } 
+-
+-    // Here, all clones are built.
+-    // Gives the unit clause to everybody
+-    for(int i=0;i<nbsolvers;i++)
+-      solvers[i]->uncheckedEnqueue(ps[0]);
+-    return ok = ( (solvers[0]->propagate()) == CRef_Undef); // checks only main solver here for propagation constradiction
+-  }else{
+-    //		printf("Adding clause %0xd for solver %d.\n",(void*)c, thn);
+-    // At the beginning only solver 0 load the formula
+-    solvers[0]->addClause(ps);
+-    
+-    if(!allClonesAreBuilt) {
+-	numclauses++;
+-	return true;
+-    }
+-    // Clones are built, need to pass the clause to all the threads 
+-    for(int i=1;i<nbsolvers;i++) {
+-      solvers[i]->addClause(ps);
+-    }
+-    numclauses++;
+-  }
+-  return true;
+-}
+-
+-
+-bool MultiSolvers::simplify() {
+-  assert(solvers[0] != NULL); // There is at least one solver.
+-
+-  if (!okay()) return false;
+-  return ok = solvers[0]->simplify(); 
+-}
+-
+-
+-bool MultiSolvers::eliminate() {
+-    
+-    // TODO allow variable elimination when all threads are built!
+-    assert(allClonesAreBuilt==false);
+-    
+-    SimpSolver * s = (SimpSolver*)getPrimarySolver();
+-    return s->eliminate(true);
+-}
+-
+-
+-// TODO: Use a template here
+-void *localLaunch(void*arg) {
+-  ParallelSolver* s = (ParallelSolver*)arg;
+-  
+-  (void)s->solve();
+-  
+-  pthread_exit(NULL);
+-}
+-
+-
+-#define MAXIMUM_SLEEP_DURATION 5
+-void MultiSolvers::printStats() {
+-	static int nbprinted = 1;
+-	double cpu_time = cpuTime();
+-    printf("c\n");
+-
+-    printf("c |-------------------------------------------------------------------------------------------------------|\n");
+-        printf("c | id | starts | decisions  |  confls    |  Init T  |  learnts | exported | imported | promoted |    %%   | \n");
+-        printf("c |-------------------------------------------------------------------------------------------------------|\n");
+-
+-	//printf("%.0fs | ",cpu_time);
+-	for(int i=0;i<solvers.size();i++) {
+-	    solvers[i]->reportProgress();
+-    //printf(" %2d: %12ld confl. |", i,  (long int) solvers[i]->conflicts);
+-    }
+-	long long int totalconf = 0;
+-	long long int totalprop = 0;
+-	for(int i=0;i<solvers.size();i++) {
+-		totalconf+=  (long int) solvers[i]->conflicts;
+-		totalprop+= solvers[i]->propagations;
+-    }
+-    printf("c \n");
+-   
+-    printf("c synthesis %11lld conflicts %11lld propagations %8.0f conflicts/sec %8.0f propagations/sec\n",
+-            totalconf, totalprop, (double)totalconf / cpu_time, (double) totalprop / cpu_time);
+-
+-
+-	nbprinted ++;
+-}
+-
+-// Still a ugly function... To be rewritten with some statistics class some day
+-void MultiSolvers::printFinalStats() {
+-    sharedcomp->printStats();
+-    printf("c\nc\n");
+-    printf("c\n");
+-    printf("c |---------------------------------------- FINAL STATS --------------------------------------------------|\n");
+-    printf("c\n");
+-    
+-    printf("c |---------------");
+-    for(int i = 0;i<solvers.size();i++) 
+-        printf("|------------");
+-    printf("|-----------------|\n");    
+-
+-    printf("c | Threads       ");
+-    for(int i = 0;i < solvers.size();i++) {
+-        printf("| %10d ",i);
+-    }
+-    printf("|      Total      |\n");
+-
+-    printf("c |---------------");
+-    for(int i = 0;i<solvers.size();i++) 
+-        printf("|------------");
+-    printf("|-----------------|\n");    
+-
+-    
+-    printf("c | Conflicts     ");
+-
+-    long long int totalconf = 0;
+-    for(int i=0;i<solvers.size();i++)  {
+-	printf("| %10" PRIu64" ", solvers[i]->conflicts);
+-	totalconf +=  solvers[i]->conflicts;
+-    }
+-    printf("| %15lld |\n",totalconf);
+-   
+-    printf("c | Exported      ");
+-    uint64_t exported = 0;
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbexported);
+-        exported += solvers[i]->nbexported;
+-    }
+-    printf("| %15" PRIu64" |\n", exported);
+-
+-    printf("c | Imported      ");
+-    uint64_t imported = 0;
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbimported);
+-        imported += solvers[i]->nbimported;
+-    }
+-    printf("| %15" PRIu64" |\n", imported);
+-
+-    printf("c | Good          ");
+-    uint64_t importedGood = 0;
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbImportedGoodClauses);
+-        importedGood += solvers[i]->nbImportedGoodClauses;
+-    }
+-    printf("| %15" PRIu64" |\n", importedGood);
+-
+-    printf("c | Purge         ");
+-    uint64_t importedPurg = 0;
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbimportedInPurgatory);
+-        importedPurg += solvers[i]->nbimportedInPurgatory;
+-    }
+-    printf("| %15" PRIu64" |\n", importedPurg);
+-
+-    printf("c | Promoted      ");
+-    uint64_t promoted = 0;
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbPromoted);
+-        promoted += solvers[i]->nbPromoted;
+-    }
+-    printf("| %15" PRIu64" |\n", promoted);
+-
+-    printf("c | Remove imp    ");
+-    uint64_t removedimported = 0;
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbRemovedUnaryWatchedClauses);
+-        removedimported += solvers[i]->nbRemovedUnaryWatchedClauses;
+-    }
+-    printf("| %15" PRIu64" |\n", removedimported);
+-
+-    printf("c | Blocked Reuse ");
+-    uint64_t blockedreused = 0;
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbNotExportedBecauseDirectlyReused);
+-        blockedreused += solvers[i]->nbNotExportedBecauseDirectlyReused;
+-    }
+-    printf("| %15" PRIu64" |\n",blockedreused);
+-
+-
+-    printf("c | Orig seen     ");
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->originalClausesSeen);
+-    }
+-    printf("|                 |\n"); 
+-
+-    printf("c | Unaries       ");
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbUn);
+-    }
+-    printf("|                 |\n"); 
+-
+-    printf("c | Binaries      ");
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbBin);
+-    }
+-    printf("|                 |\n"); 
+-
+-    
+-     printf("c | Glues         ");
+-    for(int i=0;i<solvers.size();i++) {
+-	printf("| %10" PRIu64" ", solvers[i]->nbDL2);
+-    }
+-    printf("|                 |\n"); 
+-
+-
+-    int winner = -1;
+-   for(int i=0;i<solvers.size();i++) {
+-     if(sharedcomp->winner()==solvers[i])
+-       winner = i;
+-     }
+-   
+-   if(winner!=-1) {
+-int sum = 0;
+-   printf("c | Hamming       ");
+-   for(int i = 0;i<solvers.size();i++) {
+-     if(i==winner) {
+-       printf("|      X     ");
+-       continue;
+-     }
+-     int nb = 0;
+-     for(int j = 0;j<nVars();j++) {
+-       if(solvers[i]->valuePhase(j)!= solvers[winner]->valuePhase(j)) nb++;
+-     }
+-     printf("| %10d ",nb);
+-     sum+=nb;
+-
+-   }
+-   printf("| %15d |\n",sum/(solvers.size()>1?solvers.size()-1:1));
+-   }
+- 
+-   printf("c |---------------");
+-   for(int i = 0;i<solvers.size();i++) 
+-     printf("|------------");
+-   printf("|-----------------|\n");    
+-
+-  
+-
+-}
+-
+-// Well, all those parameteres are just naive guesses... No experimental evidences for this.
+-void MultiSolvers::adjustParameters() {
+-    SolverConfiguration::configure(this,nbsolvers);
+-}
+-
+-void MultiSolvers::adjustNumberOfCores() {
+- float mem = memUsed();
+-  if (nbthreads==0) { // Automatic configuration
+-      if(verb>=1) 
+-          printf("c |  Automatic Adjustement of the number of solvers. MaxMemory=%5d, MaxCores=%3d.                       |\n", maxmemory, maxnbsolvers);
+-      unsigned int tmpnbsolvers = maxmemory * 4 /  10 / mem;
+-      if (tmpnbsolvers > maxnbsolvers) tmpnbsolvers = maxnbsolvers;
+-      if (tmpnbsolvers < 1) tmpnbsolvers = 1;
+-      if(verb>=1) 
+-        printf("c |  One Solver is taking %.2fMb... Let's take %d solvers for this run (max 40%% of the maxmemory).       |\n", mem, tmpnbsolvers);
+-      nbsolvers = tmpnbsolvers;
+-      nbthreads = nbsolvers;
+-  } else {
+-      assert(nbthreads == nbsolvers);
+-  }
+-}
+-
+-lbool MultiSolvers::solve() {
+-  pthread_attr_t thAttr; 
+-  int i; 
+-
+-  adjustNumberOfCores();
+-  sharedcomp->setNbThreads(nbsolvers); 
+-  if(verb>=1) 
+-    printf("c |  Generating clones                                                                                    |\n"); 
+-  generateAllSolvers();
+-  if(verb>=1) {
+-    printf("c |  all clones generated. Memory = %6.2fMb.                                                             |\n", memUsed());
+-    printf("c ========================================================================================================|\n");
+-  }
+-  
+-  
+-  model.clear();
+-
+-  /* Initialize and set thread detached attribute */
+-  pthread_attr_init(&thAttr);
+-  pthread_attr_setdetachstate(&thAttr, PTHREAD_CREATE_JOINABLE);
+-  
+-  
+-  
+-  // Launching all solvers
+-  for (i = 0; i < nbsolvers; i++) {
+-    pthread_t * pt = (pthread_t*)malloc(sizeof(pthread_t));
+-    threads.push(pt);
+-    solvers[i]->pmfinished = &mfinished;
+-    solvers[i]->pcfinished = &cfinished;
+-    pthread_create(threads[i], &thAttr, &localLaunch, (void*)solvers[i]); 
+-  }
+-  
+-  bool done = false;
+-  
+-  (void)pthread_mutex_lock(&m);
+-  while (!done) { 
+-    struct timespec timeout;
+-    time(&timeout.tv_sec);
+-    timeout.tv_sec += MAXIMUM_SLEEP_DURATION;
+-    timeout.tv_nsec = 0;
+-    if (pthread_cond_timedwait(&cfinished, &mfinished, &timeout) != ETIMEDOUT) 
+-	    done = true;
+-    else 
+-      printStats();
+-
+-    float mem = memUsed();
+-    if(verb>=1) printf("c Total Memory so far : %.2fMb\n",  mem);
+-    if ( (maxmemory > 0) && (mem > maxmemory) && !sharedcomp->panicMode) 
+-       printf("c ** reduceDB switching to Panic Mode due to memory limitations !\n"), sharedcomp->panicMode = true;
+-    
+-  }
+-  (void)pthread_mutex_unlock(&m);
+-  
+-  for (i = 0; i < nbsolvers; i++) { // Wait for all threads to finish
+-      pthread_join(*threads[i], NULL);
+-  }
+-  
+-  assert(sharedcomp != NULL);
+-  result = sharedcomp->jobStatus;
+-  if (result == l_True) {
+-      int n = sharedcomp->jobFinishedBy->nVars();
+-	model.growTo(n);
+-	for(int i = 0; i < n; i++)
+-	    model[i] = sharedcomp->jobFinishedBy->model[i];
+-  }
+-
+-	
+-  return result;
+-  /*
+-  for(int i=0;i<NBTHREADS;i++)
+-    pthread_join(*threads[i],&status);
+-  */
+-
+-}
+-
+diff -rupN glucose-syrup.orig/parallel/MultiSolvers.h glucose-syrup.new/parallel/MultiSolvers.h
+--- glucose-syrup.orig/parallel/MultiSolvers.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/MultiSolvers.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,182 +0,0 @@
+-/***************************************************************************************[MultiSolvers.h]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#ifndef MultiSolvers_h
+-#define MultiSolvers_h
+-
+-#include "parallel/ParallelSolver.h"
+-
+-namespace Glucose {
+-    class SolverConfiguration;
+-    
+-class MultiSolvers {
+-    friend class SolverConfiguration;
+-
+-public:
+-  MultiSolvers(ParallelSolver *s);
+-  MultiSolvers();
+-  ~MultiSolvers();
+- 
+-  void printFinalStats(); 
+-
+-  void setVerbosity(int i);
+-  int verbosity();
+-  void setVerbEveryConflicts(int i);
+-  void setShowModel(int i) {showModel = i;}
+-  int getShowModel() {return showModel;}
+-  // Problem specification:
+-  //
+-  Var     newVar    (bool polarity = true, bool dvar = true); // Add a new variable with parameters specifying variable mode.
+-  bool    addClause (const vec<Lit>& ps);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
+-  bool    addClause_(      vec<Lit>& ps);       
+-  
+-  bool    simplify     ();                        // Removes already satisfied clauses.
+-  
+-  int     nVars      ()      const;       // The current number of variables.
+-  int     nClauses      ()      const;       // The current number of variables.
+-  ParallelSolver *getPrimarySolver();
+-  
+-  void generateAllSolvers();
+-  
+-  // Solving:
+-  //
+-  lbool    solve        ();                        // Search without assumptions.
+-  bool eliminate();             // Perform variable elimination
+-  void adjustParameters();
+-  void adjustNumberOfCores();
+-  void interrupt() {}
+-  vec<lbool> model;             // If problem is satisfiable, this vector contains the model (if any).
+-  inline bool okay() {
+-    if(!ok) return ok;
+-    for(int i = 0;i<solvers.size();i++) {
+-	if(!((SimpSolver*)solvers[i])->okay()) {
+-	    ok = false;
+-	    return false;
+-	}
+-    }
+-    return true;
+- 
+-  }
+-
+- protected:
+-	friend class ParallelSolver;
+-	friend class SolverCompanion;
+-	
+-struct Stats {
+-    uint64_t min, max, avg, std, med;
+-    Stats(uint64_t _min = 0,uint64_t _max = 0,uint64_t  _avg = 0,uint64_t  _std = 0,uint64_t  _med = 0) : 
+-	min(_min), max(_max), avg(_avg), std(_std), med(_med) {} 
+-};
+-
+-	void printStats(); 
+-	int ok;
+-	lbool result;
+-	int maxnbthreads; // Maximal number of threads
+-	int nbthreads; // Current number of threads
+-	int nbsolvers; // Number of CDCL solvers
+-	int nbcompanions; // Number of companions
+-	int nbcompbysolver; // Number of companions by solvers
+-	bool immediateSharingGlue ;
+-	int allClonesAreBuilt;
+-        bool showModel; // show model on/off
+-
+-	int winner;
+-
+-    vec<Lit>            add_tmp;
+- 	
+-    double    var_decay;          // Inverse of the variable activity decay factor.                                            (default 1 / 0.95)
+-    double    clause_decay;       // Inverse of the clause activity decay factor.                                              (1 / 0.999)
+-    double    cla_inc;          // Amount to bump next clause with.
+-    double    var_inc;          // Amount to bump next variable with.	
+-    double    random_var_freq;    // The frequency with which the decision heuristic tries to choose a random variable.        (default 0.02)
+-    int       restart_first;      // The initial restart limit.                                                                (default 100)
+-    double    restart_inc;        // The factor with which the restart limit is multiplied in each restart.                    (default 1.5)
+-    double    learntsize_factor;  // The intitial limit for learnt clauses is a factor of the original clauses.                (default 1 / 3)
+-    double    learntsize_inc;     // The limit for learnt clauses is multiplied with this factor each restart.                 (default 1.1)
+-    bool      expensive_ccmin;    // Controls conflict clause minimization.                                                    (default TRUE)
+-    int       polarity_mode;      // Controls which polarity the decision heuristic chooses. See enum below for allowed modes. (default polarity_false)
+-    unsigned int maxmemory;
+-    unsigned int maxnbsolvers;
+-    int verb; 
+-    int verbEveryConflicts;
+-    int numvar; // Number of variables
+-    int numclauses; // Number of clauses
+-
+-    enum { polarity_true = 0, polarity_false = 1, polarity_user = 2, polarity_rnd = 3 };
+-
+-   //ClauseAllocator     ca;
+-   SharedCompanion * sharedcomp;
+-
+-    void informEnd(lbool res);
+-    ParallelSolver* retrieveSolver(int i);
+-
+-    pthread_mutex_t m; // mutex for any high level sync between all threads (like reportf)
+-    pthread_mutex_t mfinished; // mutex on which main process may wait for... As soon as one process finishes it release the mutex
+-    pthread_cond_t cfinished; // condition variable that says that a thread has finished
+-	
+-    vec<ParallelSolver*> solvers; // set of plain solvers
+-    vec<SolverCompanion*> solvercompanions; // set of companion solvers
+-    vec<pthread_t*> threads; // all threads of this process
+-    vec<int> threadIndexOfSolver; // threadIndexOfSolver[solvers[i]] is the index in threads[] of the solver i
+-    vec<int> threadIndexOfSolverCompanion; // threadIndexOfSolverCompanion[solvercompanions[i]] is the index in threads[] of the solvercompanion i
+-};
+-
+-inline bool     MultiSolvers::addClause       (const vec<Lit>& ps)    { ps.copyTo(add_tmp); return addClause_(add_tmp); }
+-
+-inline void MultiSolvers::setVerbosity(int i) {verb = i;}
+-inline void MultiSolvers::setVerbEveryConflicts(int i) {verbEveryConflicts=i;}
+-inline int      MultiSolvers::nVars         ()      const   { return numvar; }
+-inline int      MultiSolvers::nClauses      ()      const   { return numclauses; }
+-inline int MultiSolvers::verbosity()  {return verb;}
+-inline ParallelSolver* MultiSolvers::getPrimarySolver() {return solvers[0];}
+-
+-
+-}
+-#endif
+-
+diff -rupN glucose-syrup.orig/parallel/ParallelSolver.cc glucose-syrup.new/parallel/ParallelSolver.cc
+--- glucose-syrup.orig/parallel/ParallelSolver.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/ParallelSolver.cc	1970-01-01 01:00:00.000000000 +0100
+@@ -1,490 +0,0 @@
+-/***************************************************************************************[ParallelSolver.cc]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#include "parallel/ParallelSolver.h"
+-#include "mtl/Sort.h"
+-
+-using namespace Glucose;
+-
+-const char* _cunstable = "CORE/PARALLEL -- UNSTABLE FEATURES";
+-const char* _parallel = "PARALLEL";
+-
+-extern BoolOption opt_dontExportDirectReusedClauses; // (_cunstable, "reusedClauses",    "Don't export directly reused clauses", false);
+-extern BoolOption opt_plingeling; // (_cunstable, "plingeling",    "plingeling strategy for sharing clauses (exploratory feature)", false);
+-
+-
+-ParallelSolver::ParallelSolver(int threadId) :
+-  SimpSolver()
+-, thn(threadId) // The thread number of this solver
+-, nbexported(0)
+-, nbimported(0)
+-, nbexportedunit(0), nbimportedunit(0), nbimportedInPurgatory(0), nbImportedGoodClauses(0)
+-, goodlimitlbd(8)
+-, goodlimitsize(30)
+-, purgatory(true)
+-, shareAfterProbation(!opt_plingeling) // only share clauses after probation 
+-, plingeling(opt_plingeling)
+-, firstSharing(5000) // Strong limit : do not share anything (except unary clauses) before this number of conflicts
+-, limitSharingByGoodLBD(true) // Moving limit of what a good LBD is (median value of last learnt clauses set)
+-, limitSharingByFixedLimitLBD(0) // No fixed bound (like 8 in plingeling)
+-, limitSharingByFixedLimitSize(0) // No fixed boud (like 40 in plingeling) 
+-, dontExportDirectReusedClauses(opt_dontExportDirectReusedClauses)
+-, nbNotExportedBecauseDirectlyReused(0)
+-{
+-    useUnaryWatched = true; // We want to use promoted clauses here !
+-}
+-
+-
+-
+-
+-ParallelSolver::~ParallelSolver() {
+-    printf("c Solver of thread %d ended.\n", thn);
+-    fflush(stdout);
+-}
+-
+-ParallelSolver::ParallelSolver(const ParallelSolver &s) : SimpSolver(s)
+-, nbexported(s.nbexported)
+-, nbimported(s.nbimported)
+-, nbexportedunit(s.nbexportedunit), nbimportedunit(s.nbimportedunit), nbimportedInPurgatory(s.nbimportedInPurgatory)
+-, nbImportedGoodClauses(s.nbImportedGoodClauses)
+-, goodlimitlbd(s.goodlimitlbd)
+-, goodlimitsize(s.goodlimitsize)
+-, purgatory(s.purgatory)
+-, shareAfterProbation(s.shareAfterProbation) // only share clauses after probation 
+-, plingeling(s.plingeling)
+-, firstSharing(s.firstSharing) // Strong limit : do not share anything (except unary clauses) before this number of conflicts
+-, limitSharingByGoodLBD(s.limitSharingByGoodLBD) // Moving limit of what a good LBD is (median value of last learnt clauses set)
+-, limitSharingByFixedLimitLBD(s.limitSharingByFixedLimitLBD) // No fixed bound (like 8 in plingeling)
+-, limitSharingByFixedLimitSize(s.limitSharingByFixedLimitSize) // No fixed boud (like 40 in plingeling) 
+-, dontExportDirectReusedClauses(s.dontExportDirectReusedClauses)
+-, nbNotExportedBecauseDirectlyReused(s.nbNotExportedBecauseDirectlyReused) 
+-{
+-    s.goodImportsFromThreads.memCopyTo(goodImportsFromThreads);   
+-    useUnaryWatched = s.useUnaryWatched;
+-}
+-
+-
+-// Strategy to reduce unary watches list
+-struct reduceDB_oneWatched_lt {
+-    ClauseAllocator& ca;
+-
+-    reduceDB_oneWatched_lt(ClauseAllocator& ca_) : ca(ca_) {
+-    }
+-
+-    bool operator()(CRef x, CRef y) {
+-
+-        // Main criteria... Like in MiniSat we keep all binary clauses
+-        if (ca[x].size() > 2 && ca[y].size() == 2) return 1;
+-
+-        if (ca[y].size() > 2 && ca[x].size() == 2) return 0;
+-        if (ca[x].size() == 2 && ca[y].size() == 2) return 0;
+-
+-        // Second one  based on literal block distance
+-        if (ca[x].size() > ca[y].size()) return 1;
+-        if (ca[x].size() < ca[y].size()) return 0;
+-
+-        if (ca[x].lbd() > ca[y].lbd()) return 1;
+-        if (ca[x].lbd() < ca[y].lbd()) return 0;
+-
+-        // Finally we can use old activity or size, we choose the last one
+-        return ca[x].activity() < ca[y].activity();
+-        //return x->size() < y->size();
+-
+-        //return ca[x].size() > 2 && (ca[y].size() == 2 || ca[x].activity() < ca[y].activity()); } 
+-    }
+-};
+-
+-// @overide
+-void ParallelSolver::reduceDB() {
+-
+-    int i, j;
+-    nbReduceDB++;
+-    sort(learnts, reduceDB_lt(ca));
+-
+-    int limit;
+-
+-    if (!panicModeIsEnabled()) {
+-        // We have a lot of "good" clauses, it is difficult to compare them. Keep more !
+-        if (ca[learnts[learnts.size() / RATIOREMOVECLAUSES]].lbd() <= 3) nbclausesbeforereduce += specialIncReduceDB;
+-        // Useless :-)
+-        if (ca[learnts.last()].lbd() <= 5) nbclausesbeforereduce += specialIncReduceDB;
+-
+-        // Don't delete binary or locked clauses. From the rest, delete clauses from the first half
+-        // Keep clauses which seem to be usefull (their lbd was reduce during this sequence)
+-
+-        limit = learnts.size() / 2;
+-    } else {
+-        limit = panicModeLastRemoved;
+-    }
+-    panicModeLastRemoved = 0;
+-
+-    uint64_t sumsize = 0;
+-    for (i = j = 0; i < learnts.size(); i++) {
+-
+-        Clause& c = ca[learnts[i]];
+-        if (i == learnts.size() / 2)
+-            goodlimitlbd = c.lbd();
+-        sumsize += c.size();
+-        if (c.lbd() > 2 && c.size() > 2 && c.canBeDel() && !locked(c) && (i < limit)) {
+-            removeClause(learnts[i]);
+-            nbRemovedClauses++;
+-            panicModeLastRemoved++;
+-        } else {
+-            if (!c.canBeDel()) limit++; //we keep c, so we can delete an other clause
+-            c.setCanBeDel(true); // At the next step, c can be delete
+-            learnts[j++] = learnts[i];
+-        }
+-    }
+-    learnts.shrink(i - j);
+-
+-    if (learnts.size() > 0)
+-        goodlimitsize = 1 + (double) sumsize / (double) learnts.size();
+-
+-    // Special treatment for imported clauses
+-    if (!panicModeIsEnabled())
+-        limit = unaryWatchedClauses.size() - (learnts.size() * 2);
+-    else
+-        limit = panicModeLastRemovedShared;
+-    panicModeLastRemovedShared = 0;
+-    if ((unaryWatchedClauses.size() > 100) && (limit > 0)) {
+-
+-        sort(unaryWatchedClauses, reduceDB_oneWatched_lt(ca));
+-
+-        for (i = j = 0; i < unaryWatchedClauses.size(); i++) {
+-            Clause& c = ca[unaryWatchedClauses[i]];
+-            if (c.lbd() > 2 && c.size() > 2 && c.canBeDel() && !locked(c) && (i < limit)) {
+-                removeClause(unaryWatchedClauses[i], c.getOneWatched()); // remove from the purgatory (or not)
+-                nbRemovedUnaryWatchedClauses++;
+-                panicModeLastRemovedShared++;
+-            } else {
+-                if (!c.canBeDel()) limit++; //we keep c, so we can delete an other clause
+-                c.setCanBeDel(true); // At the next step, c can be delete
+-                unaryWatchedClauses[j++] = unaryWatchedClauses[i];
+-            }
+-        }
+-        unaryWatchedClauses.shrink(i - j);
+-    }
+-
+-    checkGarbage();
+-}
+-
+-
+-/*_________________________________________________________________________________________________
+-|
+-|  parallelImportClauseDuringConflictAnalysis : (Clause &c,CRef confl)   ->  [void]
+-|  
+-|  Description:
+-|    Verify if the clause using during conflict analysis is good for export
+-|    @see : analyze
+-|  Output:
+-|________________________________________________________________________________________________@*/
+-
+-
+-void ParallelSolver::parallelImportClauseDuringConflictAnalysis(Clause &c,CRef confl) {
+-    if (dontExportDirectReusedClauses && (confl == lastLearntClause) && (c.getExported() < 2)) { // Experimental stuff
+-        c.setExported(2);
+-        nbNotExportedBecauseDirectlyReused++;
+-    } else if (shareAfterProbation && c.getExported() != 2 && conflicts > firstSharing) {
+-        c.setExported(c.getExported() + 1);
+-        if (!c.wasImported() && c.getExported() == 2) { // It's a new interesting clause: 
+-            if (c.lbd() == 2 || (c.size() < goodlimitsize && c.lbd() <= goodlimitlbd)) {
+-                shareClause(c);
+-            }
+-        }
+-    }
+-
+-}
+-
+-
+-
+-// These Two functions are useless here !!
+-void ParallelSolver::reportProgress() {
+-    printf("c | %2d | %6d | %10d | %10d | %8d | %8d | %8d | %8d | %8d | %6.3f |\n",(int)thn,(int)starts,(int)decisions,(int)conflicts,(int)originalClausesSeen,(int)learnts.size(),(int)nbexported,(int)nbimported,(int)nbPromoted,progressEstimate()*100);
+-
+-    //printf("c thread=%d confl=%lld starts=%llu reduceDB=%llu learnts=%d broadcast=%llu  blockedReuse=%lld imported=%llu promoted=%llu limitlbd=%llu limitsize=%llu\n", thn, conflicts, starts, nbReduceDB, learnts.size(), nbexported, nbNotExportedBecauseDirectlyReused, nbimported, nbPromoted, goodlimitlbd, goodlimitsize);
+-}
+-
+-void ParallelSolver::reportProgressArrayImports(vec<unsigned int> &totalColumns) {
+-    return ; // TODO : does not currently work
+-    unsigned int totalImports = 0;
+-    printf("c %3d | ", thn);
+-    for (int i = 0; i <  sharedcomp->nbThreads; i++) {
+-        totalImports += goodImportsFromThreads[i];
+-        totalColumns[i] += goodImportsFromThreads[i];
+-        printf(" %8d", goodImportsFromThreads[i]);
+-    }
+-    printf(" | %8d\n", totalImports);
+-
+-}
+- 
+-
+-
+-/*_________________________________________________________________________________________________
+-|
+-|  shareClause : (Clause &c)   ->  [bool]
+-|  
+-|  Description:
+-|  share a clause to other cores  
+-| @see : analyze
+-|  Output: true if the clause is indeed sent
+-|________________________________________________________________________________________________@*/
+-
+-bool ParallelSolver::shareClause(Clause & c) {
+-    bool sent = sharedcomp->addLearnt(this, c);
+-    if (sent)
+-        nbexported++;
+-    return sent;
+-}
+-
+-/*_________________________________________________________________________________________________
+-|
+-|  panicModeIsEnabled : ()   ->  [bool]
+-|  
+-|  Description:
+-|  is panic mode (save memory) is enabled ?
+-|________________________________________________________________________________________________@*/
+-
+-bool ParallelSolver::panicModeIsEnabled() {
+-    return sharedcomp->panicMode;
+-}
+-
+-/*_________________________________________________________________________________________________
+-|
+-|  parallelImportUnaryClauses : ()   ->  [void]
+-|  
+-|  Description:
+-|  import all unary clauses from other cores
+-|________________________________________________________________________________________________@*/
+-
+-void ParallelSolver::parallelImportUnaryClauses() {
+-    Lit l;
+-    while ((l = sharedcomp->getUnary(this)) != lit_Undef) {
+-        if (value(var(l)) == l_Undef) {
+-            uncheckedEnqueue(l);
+-            nbimportedunit++;
+-        }
+-    }
+-}
+-
+-/*_________________________________________________________________________________________________
+-|
+-|  parallelImportClauses : ()   ->  [bool]
+-|  
+-|  Description:
+-|  import all clauses from other cores
+-|  Output : if there is a final conflict
+-|________________________________________________________________________________________________@*/
+-
+-bool ParallelSolver::parallelImportClauses() {
+-
+-    assert(decisionLevel() == 0);
+-    int importedFromThread;
+-    while (sharedcomp->getNewClause(this, importedFromThread, importedClause)) {
+-        assert(importedFromThread <= sharedcomp->nbThreads);
+-        assert(importedFromThread >= 0);
+-
+-        assert(importedFromThread != thn);
+-
+-        if (importedClause.size() == 0)
+-            return true;
+-
+-        //printf("Thread %d imports clause from thread %d\n", threadNumber(), importedFromThread);
+-        CRef cr = ca.alloc(importedClause, true, true);
+-        ca[cr].setLBD(importedClause.size());
+-        if (plingeling) // 0 means a broadcasted clause (good clause), 1 means a survivor clause, broadcasted
+-            ca[cr].setExported(2); // A broadcasted clause (or a survivor clause) do not share it anymore
+-        else {
+-            ca[cr].setExported(1); // next time we see it in analyze, we share it (follow route / broadcast depending on the global strategy, part of an ongoing experimental stuff: a clause in one Watched will be set to exported 2 when promotted.
+-        }
+-        ca[cr].setImportedFrom(importedFromThread);
+-        unaryWatchedClauses.push(cr);
+-        if (plingeling || ca[cr].size() <= 2) {//|| importedRoute == 0) { // importedRoute == 0 means a glue clause in another thread (or any very good clause)
+-            ca[cr].setOneWatched(false); // Warning: those clauses will never be promoted by a conflict clause (or rarely: they are propagated!)
+-            attachClause(cr);
+-            nbImportedGoodClauses++;
+-        } else {
+-            ca[cr].setOneWatched(true);
+-            attachClausePurgatory(cr); // 
+-            nbimportedInPurgatory++;
+-        }
+-        assert(ca[cr].learnt());
+-        nbimported++;
+-    }
+-    return false;
+-}
+-
+-
+-/*_________________________________________________________________________________________________
+-|
+-|  parallelExportUnaryClause : (Lit p)   ->  [void]
+-|  
+-|  Description:
+-|  export unary clauses to other cores
+-|________________________________________________________________________________________________@*/
+-
+-void ParallelSolver::parallelExportUnaryClause(Lit p) {
+-    // Multithread
+-    sharedcomp->addLearnt(this,p ); // TODO: there can be a contradiction here (two theads proving a and -a)
+-    nbexportedunit++;
+-}
+-
+-
+-/*_________________________________________________________________________________________________
+-|
+-|  parallelExportClauseDuringSearch : (Clause &c)   ->  [void]
+-|  
+-|  Description:
+-|  Verify if a new learnt clause is useful for export
+-|  @see search
+-|  
+-|________________________________________________________________________________________________@*/
+-
+-void ParallelSolver::parallelExportClauseDuringSearch(Clause &c) {
+-    //
+-    // Multithread
+-    // Now I'm sharing the clause if seen in at least two conflicts analysis shareClause(ca[cr]);
+-    if ((plingeling && !shareAfterProbation && c.lbd() < 8 && c.size() < 40) ||
+-            (c.lbd() <= 2)) { // For this class of clauses, I'm sharing them asap (they are Glue CLauses, no probation for them)
+-        shareClause(c);
+-        c.setExported(2);
+-    }
+-
+-}
+-
+-
+-/*_________________________________________________________________________________________________
+-|
+-|  parallelJobIsFinished : ()   ->  [bool]
+-|  
+-|  Description:
+-|  Is a core already finish the search
+-|  
+-|________________________________________________________________________________________________@*/
+-
+-bool ParallelSolver::parallelJobIsFinished() { 
+-    // Parallel: another job has finished let's quit
+-    return (sharedcomp->jobFinished());
+-}
+-
+-// @overide
+-lbool ParallelSolver::solve_(bool do_simp, bool turn_off_simp) {
+-       vec<Var> extra_frozen;
+-    lbool    result = l_True;
+-    do_simp &= use_simplification;
+-    if (do_simp){
+-        // Assumptions must be temporarily frozen to run variable elimination:
+-        for (int i = 0; i < assumptions.size(); i++){
+-            Var v = var(assumptions[i]);
+-
+-            // If an assumption has been eliminated, remember it.
+-            assert(!isEliminated(v));
+-
+-            if (!frozen[v]){
+-                // Freeze and store.
+-                setFrozen(v, true);
+-                extra_frozen.push(v);
+-            } }
+-
+-        result = lbool(eliminate(turn_off_simp));
+-    }
+-
+-    model.clear();
+-    conflict.clear();
+-    if (!ok) return l_False;
+-
+-    solves++;
+-
+-
+-    lbool status = l_Undef;
+-
+-    // Search:
+-    int curr_restarts = 0;
+-    while (status == l_Undef && !sharedcomp->jobFinished()) {
+-        status = search(0); // the parameter is useless in glucose, kept to allow modifications
+-        if (!withinBudget()) break;
+-        curr_restarts++;
+-    }
+-
+-    if (verbosity >= 1)
+-        printf("c =========================================================================================================\n");
+-
+-
+-/*    if (do_simp)
+-        // Unfreeze the assumptions that were frozen:
+-        for (int i = 0; i < extra_frozen.size(); i++)
+-            setFrozen(extra_frozen[i], false);
+-*/
+-    
+-    bool firstToFinish = false;
+-    if (status != l_Undef)
+-        firstToFinish = sharedcomp->IFinished(this);
+-    if (firstToFinish) {
+-        printf("c Thread %d is 100%% pure glucose! First thread to finish! (%s answer).\n", threadNumber(), status == l_True ? "SAT" : status == l_False ? "UNSAT" : "UNKOWN");
+-        sharedcomp->jobStatus = status;
+-    }
+-    
+-    if (firstToFinish && status == l_True) {
+-        extendModel();
+-
+-
+-        // Extend & copy model:
+-        model.growTo(nVars());
+-        for (int i = 0; i < nVars(); i++) model[i] = value(i);
+-    } else if (status == l_False && conflict.size() == 0)
+-        ok = false;
+-
+-
+-    pthread_cond_signal(pcfinished);
+-
+-    //cancelUntil(0);
+-
+-
+-    return status;
+-
+-}
+diff -rupN glucose-syrup.orig/parallel/ParallelSolver.h glucose-syrup.new/parallel/ParallelSolver.h
+--- glucose-syrup.orig/parallel/ParallelSolver.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/ParallelSolver.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,144 +0,0 @@
+-/**************************************************************************************[ParallelSolver.h]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#ifndef PARALLELSOLVER_H
+-#define	PARALLELSOLVER_H
+-
+-#include "core/SolverTypes.h"
+-#include "core/Solver.h"
+-#include "simp/SimpSolver.h"
+-#include "parallel/SharedCompanion.h"
+-namespace Glucose {
+-//=================================================================================================
+-    //class MultiSolvers;
+-    //class SolverCompanion;
+- //   class MultiSolvers;
+-    
+-class ParallelSolver : public SimpSolver {
+-    friend class MultiSolvers;
+-    friend class SolverCompanion;
+-    friend class SharedCompanion;
+-//    friend class ReasoningCompanion;
+-//    friend class SolverConfiguration;
+-
+-protected : 
+-          // Multithread :
+-    int		thn; // internal thread number
+-    //MultiSolvers* belongsto; // Not working (due to incomplete types)
+-    SharedCompanion *sharedcomp;
+-    bool coreFUIP; // true if one core is specialized for branching on all FUIP
+-    bool ImTheSolverFUIP;
+-    pthread_mutex_t *pmfinished; // mutex on which main process may wait for... As soon as one process finishes it release the mutex
+-    pthread_cond_t *pcfinished; // condition variable that says that a thread as finished
+-
+-public:
+-    // Constructor/Destructor:
+-    //
+-    ParallelSolver(int threadId);
+-    ParallelSolver(const ParallelSolver &s);
+-    ~ParallelSolver();
+-    
+-    /**
+-     * Clone function
+-     */
+-    virtual Clone* clone() const {
+-        return  new ParallelSolver(*this);
+-    }   
+-
+-    int  threadNumber  ()      const;
+-    void setThreadNumber (int i);
+-    void reportProgress();
+-    void reportProgressArrayImports(vec<unsigned int> &totalColumns);
+-    virtual void reduceDB();
+-    virtual lbool         solve_                   (bool do_simp = true, bool turn_off_simp = false);
+-
+-    vec<Lit>    importedClause; // Temporary clause used to copy each imported clause
+-    uint64_t    nbexported;
+-    uint64_t    nbimported; 
+-    uint64_t    nbexportedunit, nbimportedunit , nbimportedInPurgatory, nbImportedGoodClauses;
+-    unsigned int    goodlimitlbd; // LBD score of the "good" clauses, locally
+-    int    goodlimitsize;
+-    bool purgatory; // mode of operation
+-    bool shareAfterProbation; // Share any none glue clause only after probation (seen 2 times in conflict analysis)
+-    bool plingeling; // plingeling strategy for sharing clauses (experimental)
+-
+-    // Stats front end
+-    uint64_t   getNbExported() { return nbexported;}
+-    uint64_t   getNbImported() { return nbimported;}
+-    uint64_t   getNbExportedUnit() {return nbexportedunit;}
+-    
+-    uint32_t  firstSharing, limitSharingByGoodLBD, limitSharingByFixedLimitLBD, limitSharingByFixedLimitSize;
+-    uint32_t  probationByFollowingRoads, probationByFriend;
+-    uint32_t  survivorLayers; // Number of layers for a common clause to survive
+-    bool dontExportDirectReusedClauses ; // When true, directly reused clauses are not exported
+-    uint64_t nbNotExportedBecauseDirectlyReused;
+-    
+-    
+-    vec<uint32_t> goodImportsFromThreads; // Stats of good importations from other threads
+-
+-    virtual void parallelImportClauseDuringConflictAnalysis(Clause &c,CRef confl);
+-    virtual bool parallelImportClauses(); // true if the empty clause was received
+-    virtual void parallelImportUnaryClauses();
+-    virtual void parallelExportUnaryClause(Lit p);
+-    virtual void parallelExportClauseDuringSearch(Clause &c);
+-    virtual bool parallelJobIsFinished();
+-    virtual bool panicModeIsEnabled();
+- 
+-    bool shareClause(Clause & c); // true if the clause was succesfully sent
+-
+-    
+-
+-};
+-
+-
+-    inline int      ParallelSolver::threadNumber  ()      const   {return thn;}
+-    inline void     ParallelSolver::setThreadNumber (int i)       {thn = i;}
+-}
+-#endif	/* PARALLELSOLVER_H */
+-
+diff -rupN glucose-syrup.orig/parallel/SharedCompanion.cc glucose-syrup.new/parallel/SharedCompanion.cc
+--- glucose-syrup.orig/parallel/SharedCompanion.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/SharedCompanion.cc	1970-01-01 01:00:00.000000000 +0100
+@@ -1,167 +0,0 @@
+-/***************************************************************************************[SharedCompanion.cc]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#include "core/Solver.h"
+-#include "parallel/ParallelSolver.h"
+-#include "core/SolverTypes.h"
+-#include "parallel/ClausesBuffer.h"
+-#include "parallel/SharedCompanion.h"
+-
+-
+-using namespace Glucose;
+-
+-SharedCompanion::SharedCompanion(int _nbThreads) :
+-    nbThreads(_nbThreads), 
+-    bjobFinished(false),
+-    jobFinishedBy(NULL),
+-    panicMode(false), // The bug in the SAT2014 competition :)
+-    jobStatus(l_Undef),
+-    random_seed(9164825) {
+-
+-	pthread_mutex_init(&mutexSharedClauseCompanion,NULL); // This is the shared companion lock
+-	pthread_mutex_init(&mutexSharedUnitCompanion,NULL); // This is the shared companion lock
+-	pthread_mutex_init(&mutexSharedCompanion,NULL); // This is the shared companion lock
+-	pthread_mutex_init(&mutexJobFinished,NULL); // This is the shared companion lock
+-	if (_nbThreads> 0)  {
+-	    setNbThreads(_nbThreads);
+-	    fprintf(stdout,"c Shared companion initialized: handling of clauses of %d threads.\nc %d ints for the sharing clause buffer (not expandable) .\n", _nbThreads, clausesBuffer.maxSize());
+-	}
+-
+-}
+-
+-void SharedCompanion::setNbThreads(int _nbThreads) {
+-   nbThreads = _nbThreads;
+-   clausesBuffer.setNbThreads(_nbThreads); 
+-}
+-
+-void SharedCompanion::printStats() {
+-}
+-
+-// No multithread safe
+-bool SharedCompanion::addSolver(ParallelSolver* s) {
+-	watchedSolvers.push(s);
+-	pthread_mutex_t* mu = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+-	pthread_mutex_init(mu,NULL);
+-	assert(s->thn == watchedSolvers.size()-1); // all solvers must have been registered in the good order
+-	nextUnit.push(0);
+-
+-	return true;
+-}
+-void SharedCompanion::newVar(bool sign) {
+-   isUnary .push(l_Undef);
+-}
+-
+-void SharedCompanion::addLearnt(ParallelSolver *s,Lit unary) {
+-  pthread_mutex_lock(&mutexSharedUnitCompanion);
+-  if (isUnary[var(unary)]==l_Undef) {
+-      unitLit.push(unary);
+-      isUnary[var(unary)] = sign(unary)?l_False:l_True;
+-  } 
+-  pthread_mutex_unlock(&mutexSharedUnitCompanion);
+-}
+-
+-Lit SharedCompanion::getUnary(ParallelSolver *s) {
+-  int sn = s->thn;
+-  Lit ret = lit_Undef;
+-
+-  pthread_mutex_lock(&mutexSharedUnitCompanion);
+-  if (nextUnit[sn] < unitLit.size())
+-      ret = unitLit[nextUnit[sn]++];
+-  pthread_mutex_unlock(&mutexSharedUnitCompanion);
+- return ret;
+-}
+-
+-// Specialized functions for this companion
+-// must be multithread safe
+-// Add a clause to the threads-wide clause database (all clauses, through)
+-bool SharedCompanion::addLearnt(ParallelSolver *s, Clause & c) { 
+-  int sn = s->thn; // thread number of the solver
+-  bool ret = false;
+-  assert(watchedSolvers.size()>sn);
+-
+-  pthread_mutex_lock(&mutexSharedClauseCompanion);
+-  ret = clausesBuffer.pushClause(sn, c);
+-  pthread_mutex_unlock(&mutexSharedClauseCompanion);
+-  return ret;
+-}
+-
+-
+-bool SharedCompanion::getNewClause(ParallelSolver *s, int & threadOrigin, vec<Lit>& newclause) { // gets a new interesting clause for solver s 
+-  int sn = s->thn;
+-  
+-    // First, let's get the clauses on the big blackboard
+-    pthread_mutex_lock(&mutexSharedClauseCompanion);
+-    bool b = clausesBuffer.getClause(sn, threadOrigin, newclause);
+-    pthread_mutex_unlock(&mutexSharedClauseCompanion);
+- 
+-  return b;
+-}
+-
+-bool SharedCompanion::jobFinished() {
+-    bool ret = false;
+-    pthread_mutex_lock(&mutexJobFinished);
+-    ret = bjobFinished;
+-    pthread_mutex_unlock(&mutexJobFinished);
+-    return ret;
+-}
+-
+-bool SharedCompanion::IFinished(ParallelSolver *s) {
+-    bool ret = false;
+-    pthread_mutex_lock(&mutexJobFinished);
+-    if (!bjobFinished) {
+-	ret = true;
+-	bjobFinished = true;
+-	jobFinishedBy = s;
+-    }
+-    pthread_mutex_unlock(&mutexJobFinished);
+-    return ret;
+-}
+-
+-
+-
+diff -rupN glucose-syrup.orig/parallel/SharedCompanion.h glucose-syrup.new/parallel/SharedCompanion.h
+--- glucose-syrup.orig/parallel/SharedCompanion.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/SharedCompanion.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,122 +0,0 @@
+-/***************************************************************************************[SharedCompanion.h]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-/* This class is responsible for protecting (by mutex) information exchange between threads.
+- * It also allows each solver to send / receive clause / unary clauses.
+- *
+- * Only one sharedCompanion is created for all the solvers
+- */
+-
+-
+-#ifndef SharedCompanion_h
+-#define SharedCompanion_h
+-#include "core/SolverTypes.h"
+-#include "parallel/ParallelSolver.h"
+-#include "parallel/SolverCompanion.h"
+-#include "parallel/ClausesBuffer.h"
+-
+-namespace Glucose {
+-
+-    
+-class SharedCompanion : public SolverCompanion {
+-    friend class MultiSolvers;
+-    friend class ParallelSolver;
+-public:
+-	SharedCompanion(int nbThreads=0);
+-	void setNbThreads(int _nbThreads); // Sets the number of threads (cannot by changed once the solver is running)
+-	void newVar(bool sign);            // Adds a var (used to keep track of unary variables)
+-	void printStats();                 // Printing statistics of all solvers
+-
+-	bool jobFinished();                // True if the job is over
+-	bool IFinished(ParallelSolver *s); // returns true if you are the first solver to finish
+-	bool addSolver(ParallelSolver*);   // attach a solver to accompany 
+-	void addLearnt(ParallelSolver *s,Lit unary);   // Add a unary clause to share
+-	bool addLearnt(ParallelSolver *s, Clause & c); // Add a clause to the shared companion, as a database manager
+-
+-	bool getNewClause(ParallelSolver *s, int &th, vec<Lit> & nc); // gets a new interesting clause for solver s 
+-	Lit getUnary(ParallelSolver *s);                              // Gets a new unary literal
+-	inline ParallelSolver* winner(){return jobFinishedBy;}        // Gets the first solver that called IFinished()
+-
+- protected:
+-
+-	ClausesBuffer clausesBuffer; // A big blackboard for all threads sharing non unary clauses
+-	int nbThreads;               // Number of threads
+-	
+-	// A set of mutex variables
+-	pthread_mutex_t mutexSharedCompanion; // mutex for any high level sync between all threads (like reportf)
+-	pthread_mutex_t mutexSharedClauseCompanion; // mutex for reading/writing clauses on the blackboard
+-	pthread_mutex_t mutexSharedUnitCompanion; // mutex for reading/writing unit clauses on the blackboard 
+-        pthread_mutex_t mutexJobFinished;
+-
+-	bool bjobFinished;
+-	ParallelSolver *jobFinishedBy;
+-	bool panicMode;                        // panicMode means no more increasing space needed
+-	lbool jobStatus;                       // globale status of the job
+-
+-        // Shared clauses are a queue of lits...
+-	//	friend class wholearnt;
+-	vec<int> nextUnit; // indice of next unit clause to retrieve for solver number i 
+-	vec<Lit> unitLit;  // Set of unit literals found so far
+-        vec<lbool> isUnary; // sign of the unary var (if proved, or l_Undef if not)	
+-	double    random_seed;
+-
+-	// Returns a random float 0 <= x < 1. Seed must never be 0.
+-	static inline double drand(double& seed) {
+-	    seed *= 1389796;
+-	    int q = (int)(seed / 2147483647);
+-	    seed -= (double)q * 2147483647;
+-	    return seed / 2147483647; }
+-
+-	// Returns a random integer 0 <= x < size. Seed must never be 0.
+-	static inline int irand(double& seed, int size) {
+-	    return (int)(drand(seed) * size); }
+-
+-};
+-}
+-#endif
+diff -rupN glucose-syrup.orig/parallel/SolverCompanion.cc glucose-syrup.new/parallel/SolverCompanion.cc
+--- glucose-syrup.orig/parallel/SolverCompanion.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/SolverCompanion.cc	1970-01-01 01:00:00.000000000 +0100
+@@ -1,87 +0,0 @@
+-/***************************************************************************************[SolverCompanion.cc]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-/* This class is a general companion for a solver.
+- * The idea is to be able to have different kind of companions:
+- * - SharedCompanion that shares clauses between threads
+- * - NetworkCompanion (Not in this version) that sends clauses over the network
+- *
+- * The implementaton is trivial. Just keep track of watched Solvers by the companion.
+- **/
+-
+-#include "parallel/SolverCompanion.h"
+-
+-using namespace Glucose;
+-
+-SolverCompanion::SolverCompanion()
+-{}
+-
+-SolverCompanion::~SolverCompanion()
+-{}
+-
+-
+-bool SolverCompanion::addSolver(ParallelSolver* s) {
+-	watchedSolvers.push(s);
+-	return true;
+-}
+-
+-int SolverCompanion::runOnceCompanion() {
+-	int errcode = 0;
+-	for(int indexSolver = 0; indexSolver<watchedSolvers.size();indexSolver++) {
+-	  errcode=runOnceCompanion(watchedSolvers[indexSolver]);
+-		if (errcode<0) return errcode;
+-	}
+-	return errcode;
+-}
+-
+-int SolverCompanion::runOnceCompanion(ParallelSolver*s) {
+-	return 0;
+-}
+-
+-
+diff -rupN glucose-syrup.orig/parallel/SolverCompanion.h glucose-syrup.new/parallel/SolverCompanion.h
+--- glucose-syrup.orig/parallel/SolverCompanion.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/SolverCompanion.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,79 +0,0 @@
+-/***************************************************************************************[SolverCompanion.h]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-/* This class is a general companion for a solver.
+- * The idea is to be able to have different kind of companions:
+- * - SharedCompanion that shares clauses between threads
+- * - NetworkCompanion (Not in this version) that sends clauses over the network
+- **/
+-
+-#ifndef SolverCompanion_h
+-#define SolverCompanion_h
+-#include "mtl/Vec.h"
+-namespace Glucose {
+-    
+-    class ParallelSolver;
+-    
+-class SolverCompanion {
+-	public:
+-	SolverCompanion();
+-	~SolverCompanion();
+-	
+-	bool addSolver(ParallelSolver* s); // attach a solver to accompany 
+-	
+-	int runOnceCompanion(); // run it as a thread, but run it just once... 
+-	
+-	protected:
+-	int runOnceCompanion(ParallelSolver*s); // run it only on this watched solver
+-	friend class ParallelSolver;
+-	vec<ParallelSolver*> watchedSolvers; 
+-};
+-}
+-#endif
+-
+diff -rupN glucose-syrup.orig/parallel/SolverConfiguration.cc glucose-syrup.new/parallel/SolverConfiguration.cc
+--- glucose-syrup.orig/parallel/SolverConfiguration.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/SolverConfiguration.cc	1970-01-01 01:00:00.000000000 +0100
+@@ -1,131 +0,0 @@
+-/***************************************************************************************[SolverConfiguration.cc]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#include "parallel/MultiSolvers.h"
+-#include "core/Solver.h"
+-//#include "parallel/ParallelSolver.h"
+-#include "parallel/SolverConfiguration.h"
+-
+-using namespace Glucose;
+-
+-  void SolverConfiguration::configure(MultiSolvers *ms, int nbsolvers) {
+-
+-   if (nbsolvers < 2 ) return;
+-
+-   ms->solvers[1]->var_decay = 0.94;
+-   ms->solvers[1]->max_var_decay = 0.96;
+-   ms->solvers[1]->firstReduceDB=600;
+-
+-   if (nbsolvers < 3 ) return;
+-
+-   ms->solvers[2]->var_decay = 0.90;
+-   ms->solvers[2]->max_var_decay = 0.97;
+-   ms->solvers[2]->firstReduceDB=500;
+-
+-   if (nbsolvers < 4 ) return;
+-
+-   ms->solvers[3]->var_decay = 0.85;
+-   ms->solvers[3]->max_var_decay = 0.93;
+-   ms->solvers[3]->firstReduceDB=400;
+-
+-   if (nbsolvers < 5 ) return;
+-
+-   // Glucose 2.0 (+ blocked restarts)
+-   ms->solvers[4]->var_decay = 0.95;
+-   ms->solvers[4]->max_var_decay = 0.95;
+-   ms->solvers[4]->firstReduceDB=4000;
+-   ms->solvers[4]->lbdQueue.growTo(100);
+-   ms->solvers[4]->sizeLBDQueue = 100;
+-   ms->solvers[4]->K = 0.7;
+-   ms->solvers[4]->incReduceDB = 500;
+-
+-   if (nbsolvers < 6 ) return;
+-
+-   ms->solvers[5]->var_decay = 0.93;
+-   ms->solvers[5]->max_var_decay = 0.96;
+-   ms->solvers[5]->firstReduceDB=100;
+-   ms->solvers[5]->incReduceDB = 500;
+-
+-   if (nbsolvers < 7 ) return;
+-
+-   ms->solvers[6]->var_decay = 0.75;
+-   ms->solvers[6]->max_var_decay = 0.94;
+-   ms->solvers[6]->firstReduceDB=2000;
+-
+-   if (nbsolvers < 8 ) return; 
+-
+-   ms->solvers[7]->var_decay = 0.94;
+-   ms->solvers[7]->max_var_decay = 0.96;
+-   ms->solvers[7]->firstReduceDB=800;
+-
+-   if (nbsolvers < 9) return;
+-
+-   ms->solvers[8]->reduceOnSize = true;
+-
+-   if (nbsolvers < 10 ) return;
+-
+-   ms->solvers[9]->reduceOnSize = true;
+-   ms->solvers[9]->reduceOnSizeSize = 14;
+-
+-   if (nbsolvers < 11 ) return;
+-
+-   double noisevar_decay = 0.005;
+-   int noiseReduceDB = 50;
+-   for (int i=10;i<nbsolvers;i++) {
+-       ms->solvers[i]-> var_decay = ms->solvers[i%8]->var_decay;
+-       ms->solvers[i]-> max_var_decay = ms->solvers[i%8]->max_var_decay;
+-       ms->solvers[i]-> firstReduceDB= ms->solvers[i%8]->firstReduceDB;
+-       ms->solvers[i]->var_decay += noisevar_decay;
+-       ms->solvers[i]->firstReduceDB+=noiseReduceDB;
+-       if ((i+1) % 8 == 0) {
+-	   noisevar_decay += 0.006;
+-	   noiseReduceDB += 25;
+-       }
+-   }
+- }
+diff -rupN glucose-syrup.orig/parallel/SolverConfiguration.h glucose-syrup.new/parallel/SolverConfiguration.h
+--- glucose-syrup.orig/parallel/SolverConfiguration.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/parallel/SolverConfiguration.h	1970-01-01 01:00:00.000000000 +0100
+@@ -1,68 +0,0 @@
+-/***************************************************************************************[SolverConfiguration.h]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-
+-#ifndef SolverConfiguration_h
+-#define SolverConfiguration_h
+-
+-
+-
+-namespace Glucose {
+-
+-class MultiSolvers;
+-
+-class SolverConfiguration {
+-
+-public : 
+-    static void configure(MultiSolvers *ms, int nbsolvers);
+-    
+-};
+-
+-}
+-#endif
+diff -rupN glucose-syrup.orig/simp/Main.cc glucose-syrup.new/simp/Main.cc
+--- glucose-syrup.orig/simp/Main.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/simp/Main.cc	1970-01-01 01:00:00.000000000 +0100
+@@ -1,294 +0,0 @@
+-/***************************************************************************************[Main.cc]
+- Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                LRI  - Univ. Paris Sud, France (2009-2013)
+-                                Labri - Univ. Bordeaux, France
+-
+- Syrup (Glucose Parallel) -- Copyright (c) 2013-2014, Gilles Audemard, Laurent Simon
+-                                CRIL - Univ. Artois, France
+-                                Labri - Univ. Bordeaux, France
+-
+-Glucose sources are based on MiniSat (see below MiniSat copyrights). Permissions and copyrights of
+-Glucose (sources until 2013, Glucose 3.0, single core) are exactly the same as Minisat on which it 
+-is based on. (see below).
+-
+-Glucose-Syrup sources are based on another copyright. Permissions and copyrights for the parallel
+-version of Glucose-Syrup (the "Software") are granted, free of charge, to deal with the Software
+-without restriction, including the rights to use, copy, modify, merge, publish, distribute,
+-sublicence, and/or sell copies of the Software, and to permit persons to whom the Software is 
+-furnished to do so, subject to the following conditions:
+-
+-- The above and below copyrights notices and this permission notice shall be included in all
+-copies or substantial portions of the Software;
+-- The parallel version of Glucose (all files modified since Glucose 3.0 releases, 2013) cannot
+-be used in any competitive event (sat competitions/evaluations) without the express permission of 
+-the authors (Gilles Audemard / Laurent Simon). This is also the case for any competitive event
+-using Glucose Parallel as an embedded SAT engine (single core or not).
+-
+-
+---------------- Original Minisat Copyrights
+-
+-Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+-Copyright (c) 2007-2010, Niklas Sorensson
+-
+-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+-associated documentation files (the "Software"), to deal in the Software without restriction,
+-including without limitation the rights to use, copy, modify, merge, publish, distribute,
+-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
+-
+-The above copyright notice and this permission notice shall be included in all copies or
+-substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+- **************************************************************************************************/
+-
+-#include <errno.h>
+-
+-#include <signal.h>
+-#include <zlib.h>
+-#include <sys/resource.h>
+-
+-#include "utils/System.h"
+-#include "utils/ParseUtils.h"
+-#include "utils/Options.h"
+-#include "core/Dimacs.h"
+-#include "simp/SimpSolver.h"
+-
+-using namespace Glucose;
+-
+-//=================================================================================================
+-
+-static const char* _certified = "CORE -- CERTIFIED UNSAT";
+-
+-void printStats(Solver& solver)
+-{
+-    double cpu_time = cpuTime();
+-    double mem_used = 0;//memUsedPeak();
+-    printf("c restarts              : %" PRIu64" (%" PRIu64" conflicts in avg)\n", solver.starts,(solver.starts>0 ?solver.conflicts/solver.starts : 0));
+-    printf("c blocked restarts      : %" PRIu64" (multiple: %" PRIu64") \n", solver.nbstopsrestarts,solver.nbstopsrestartssame);
+-    printf("c last block at restart : %" PRIu64"\n",solver.lastblockatrestart);
+-    printf("c nb ReduceDB           : %" PRIu64"\n", solver.nbReduceDB);
+-    printf("c nb removed Clauses    : %" PRIu64"\n",solver.nbRemovedClauses);
+-    printf("c nb learnts DL2        : %" PRIu64"\n", solver.nbDL2);
+-    printf("c nb learnts size 2     : %" PRIu64"\n", solver.nbBin);
+-    printf("c nb learnts size 1     : %" PRIu64"\n", solver.nbUn);
+-
+-    printf("c conflicts             : %-12" PRIu64"   (%.0f /sec)\n", solver.conflicts   , solver.conflicts   /cpu_time);
+-    printf("c decisions             : %-12" PRIu64"   (%4.2f %% random) (%.0f /sec)\n", solver.decisions, (float)solver.rnd_decisions*100 / (float)solver.decisions, solver.decisions   /cpu_time);
+-    printf("c propagations          : %-12" PRIu64"   (%.0f /sec)\n", solver.propagations, solver.propagations/cpu_time);
+-    printf("c conflict literals     : %-12" PRIu64"   (%4.2f %% deleted)\n", solver.tot_literals, (solver.max_literals - solver.tot_literals)*100 / (double)solver.max_literals);
+-    printf("c nb reduced Clauses    : %" PRIu64"\n",solver.nbReducedClauses);
+-    
+-    if (mem_used != 0) printf("Memory used           : %.2f MB\n", mem_used);
+-    printf("c CPU time              : %g s\n", cpu_time);
+-}
+-
+-
+-
+-static Solver* solver;
+-// Terminate by notifying the solver and back out gracefully. This is mainly to have a test-case
+-// for this feature of the Solver as it may take longer than an immediate call to '_exit()'.
+-static void SIGINT_interrupt(int signum) { solver->interrupt(); }
+-
+-// Note that '_exit()' rather than 'exit()' has to be used. The reason is that 'exit()' calls
+-// destructors and may cause deadlocks if a malloc/free function happens to be running (these
+-// functions are guarded by locks for multithreaded use).
+-static void SIGINT_exit(int signum) {
+-    printf("\n"); printf("*** INTERRUPTED ***\n");
+-    if (solver->verbosity > 0){
+-        printStats(*solver);
+-        printf("\n"); printf("*** INTERRUPTED ***\n"); }
+-    _exit(1); }
+-
+-
+-//=================================================================================================
+-// Main:
+-
+-int main(int argc, char** argv)
+-{
+-    try {
+-      printf("c\nc This is glucose 4.0 --  based on MiniSAT (Many thanks to MiniSAT team)\nc\n");
+-
+-      
+-      setUsageHelp("c USAGE: %s [options] <input-file> <result-output-file>\n\n  where input may be either in plain or gzipped DIMACS.\n");
+-        
+-        
+-#if defined(__linux__)
+-        fpu_control_t oldcw, newcw;
+-        _FPU_GETCW(oldcw); newcw = (oldcw & ~_FPU_EXTENDED) | _FPU_DOUBLE; _FPU_SETCW(newcw);
+-        //printf("c WARNING: for repeatability, setting FPU to use double precision\n");
+-#endif
+-        // Extra options:
+-        //
+-        IntOption    verb   ("MAIN", "verb",   "Verbosity level (0=silent, 1=some, 2=more).", 1, IntRange(0, 2));
+-        BoolOption   mod   ("MAIN", "model",   "show model.", false);
+-        IntOption    vv  ("MAIN", "vv",   "Verbosity every vv conflicts", 10000, IntRange(1,INT32_MAX));
+-        BoolOption   pre    ("MAIN", "pre",    "Completely turn on/off any preprocessing.", true);
+-        StringOption dimacs ("MAIN", "dimacs", "If given, stop after preprocessing and write the result to this file.");
+-        IntOption    cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, IntRange(0, INT32_MAX));
+-        IntOption    mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, IntRange(0, INT32_MAX));
+- //       BoolOption opt_incremental ("MAIN","incremental", "Use incremental SAT solving",false);
+-
+-         BoolOption    opt_certified      (_certified, "certified",    "Certified UNSAT using DRUP format", false);
+-         StringOption  opt_certified_file      (_certified, "certified-output",    "Certified UNSAT output file", "NULL");
+-         
+-        parseOptions(argc, argv, true);
+-        
+-        SimpSolver  S;
+-        double      initial_time = cpuTime();
+-
+-        S.parsing = 1;
+-        //if (!pre) S.eliminate(true);
+-
+-        S.verbosity = verb;
+-        S.verbEveryConflicts = vv;
+-	S.showModel = mod;
+-        
+-        S.certifiedUNSAT = opt_certified;
+-        if(S.certifiedUNSAT) {
+-            if(!strcmp(opt_certified_file,"NULL")) {
+-            S.certifiedOutput =  fopen("/dev/stdout", "wb");
+-            } else {
+-                S.certifiedOutput =  fopen(opt_certified_file, "wb");	    
+-            }
+-            fprintf(S.certifiedOutput,"o proof DRUP\n");
+-        }
+-
+-        solver = &S;
+-        // Use signal handlers that forcibly quit until the solver will be able to respond to
+-        // interrupts:
+-        signal(SIGINT, SIGINT_exit);
+-        signal(SIGXCPU,SIGINT_exit);
+-
+-
+-        // Set limit on CPU-time:
+-        if (cpu_lim != INT32_MAX){
+-            rlimit rl;
+-            getrlimit(RLIMIT_CPU, &rl);
+-            if (rl.rlim_max == RLIM_INFINITY || (rlim_t)cpu_lim < rl.rlim_max){
+-                rl.rlim_cur = cpu_lim;
+-                if (setrlimit(RLIMIT_CPU, &rl) == -1)
+-                    printf("c WARNING! Could not set resource limit: CPU-time.\n");
+-            } }
+-
+-        // Set limit on virtual memory:
+-        if (mem_lim != INT32_MAX){
+-            rlim_t new_mem_lim = (rlim_t)mem_lim * 1024*1024;
+-            rlimit rl;
+-            getrlimit(RLIMIT_AS, &rl);
+-            if (rl.rlim_max == RLIM_INFINITY || new_mem_lim < rl.rlim_max){
+-                rl.rlim_cur = new_mem_lim;
+-                if (setrlimit(RLIMIT_AS, &rl) == -1)
+-                    printf("c WARNING! Could not set resource limit: Virtual memory.\n");
+-            } }
+-        
+-        if (argc == 1)
+-            printf("c Reading from standard input... Use '--help' for help.\n");
+-
+-        gzFile in = (argc == 1) ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
+-        if (in == NULL)
+-            printf("ERROR! Could not open file: %s\n", argc == 1 ? "<stdin>" : argv[1]), exit(1);
+-        
+-      if (S.verbosity > 0){
+-            printf("c ========================================[ Problem Statistics ]===========================================\n");
+-            printf("c |                                                                                                       |\n"); }
+-        
+-        FILE* res = (argc >= 3) ? fopen(argv[argc-1], "wb") : NULL;
+-        parse_DIMACS(in, S);
+-        gzclose(in);
+-
+-       if (S.verbosity > 0){
+-            printf("c |  Number of variables:  %12d                                                                   |\n", S.nVars());
+-            printf("c |  Number of clauses:    %12d                                                                   |\n", S.nClauses()); }
+-        
+-        double parsed_time = cpuTime();
+-        if (S.verbosity > 0){
+-            printf("c |  Parse time:           %12.2f s                                                                 |\n", parsed_time - initial_time);
+-            printf("c |                                                                                                       |\n"); }
+-
+-        // Change to signal-handlers that will only notify the solver and allow it to terminate
+-        // voluntarily:
+-        signal(SIGINT, SIGINT_interrupt);
+-        signal(SIGXCPU,SIGINT_interrupt);
+-
+-        S.parsing = 0;
+-        if(pre/* && !S.isIncremental()*/) {
+-	  printf("c | Preprocesing is fully done\n");
+-	  S.eliminate(true);
+-        double simplified_time = cpuTime();
+-        if (S.verbosity > 0){
+-            printf("c |  Simplification time:  %12.2f s                                                                 |\n", simplified_time - parsed_time);
+- }
+-	}
+-	printf("c |                                                                                                       |\n");
+-        if (!S.okay()){
+-            if (S.certifiedUNSAT) fprintf(S.certifiedOutput, "0\n"), fclose(S.certifiedOutput);
+-            if (res != NULL) fprintf(res, "UNSAT\n"), fclose(res);
+-            if (S.verbosity > 0){
+- 	        printf("c =========================================================================================================\n");
+-               printf("Solved by simplification\n");
+-                printStats(S);
+-                printf("\n"); }
+-            printf("s UNSATISFIABLE\n");        
+-            exit(20);
+-        }
+-
+-        if (dimacs){
+-            if (S.verbosity > 0)
+-                printf("c =======================================[ Writing DIMACS ]===============================================\n");
+-            S.toDimacs((const char*)dimacs);
+-            if (S.verbosity > 0)
+-                printStats(S);
+-            exit(0);
+-        }
+-
+-        vec<Lit> dummy;
+-        lbool ret = S.solveLimited(dummy);
+-        
+-        if (S.verbosity > 0){
+-            printStats(S);
+-            printf("\n"); }
+-        printf(ret == l_True ? "s SATISFIABLE\n" : ret == l_False ? "s UNSATISFIABLE\n" : "s INDETERMINATE\n");
+-
+-        if (res != NULL){
+-            if (ret == l_True){
+-                printf("SAT\n");
+-                for (int i = 0; i < S.nVars(); i++)
+-                    if (S.model[i] != l_Undef)
+-                        fprintf(res, "%s%s%d", (i==0)?"":" ", (S.model[i]==l_True)?"":"-", i+1);
+-                fprintf(res, " 0\n");
+-            } else {
+-	      if (ret == l_False){
+-		fprintf(res, "UNSAT\n");
+-	      }
+-	    }
+-            fclose(res);
+-        } else {
+-	  if(S.showModel && ret==l_True) {
+-	    printf("v ");
+-	    for (int i = 0; i < S.nVars(); i++)
+-	      if (S.model[i] != l_Undef)
+-		printf("%s%s%d", (i==0)?"":" ", (S.model[i]==l_True)?"":"-", i+1);
+-	    printf(" 0\n");
+-	  }
+-
+-	}
+-
+-        if (S.certifiedUNSAT) fprintf(S.certifiedOutput, "0\n"), fclose(S.certifiedOutput);
+-
+-#ifdef NDEBUG
+-        exit(ret == l_True ? 10 : ret == l_False ? 20 : 0);     // (faster than "return", which will invoke the destructor for 'Solver')
+-#else
+-        return (ret == l_True ? 10 : ret == l_False ? 20 : 0);
+-#endif
+-    } catch (OutOfMemoryException&){
+-	        printf("c =========================================================================================================\n");
+-        printf("INDETERMINATE\n");
+-        exit(0);
+-    }
+-}
+diff -rupN glucose-syrup.orig/simp/Makefile glucose-syrup.new/simp/Makefile
+--- glucose-syrup.orig/simp/Makefile	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/simp/Makefile	1970-01-01 01:00:00.000000000 +0100
+@@ -1,5 +0,0 @@
+-EXEC = glucose
+-DEPDIR    = mtl utils core
+-MROOT = $(PWD)/..
+-
+-include $(MROOT)/mtl/template.mk
+diff -rupN glucose-syrup.orig/simp/SimpSolver.cc glucose-syrup.new/simp/SimpSolver.cc
+--- glucose-syrup.orig/simp/SimpSolver.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/simp/SimpSolver.cc	2014-11-24 17:26:18.312038000 +0100
+@@ -318,11 +318,12 @@ bool SimpSolver::merge(const Clause& _ps
+     for (int i = 0; i < qs.size(); i++){
+         if (var(qs[i]) != v){
+             for (int j = 0; j < ps.size(); j++)
+-                if (var(ps[j]) == var(qs[i]))
++                if (var(ps[j]) == var(qs[i])) {
+                     if (ps[j] == ~qs[i])
+                         return false;
+                     else
+                         goto next;
++                }
+             out_clause.push(qs[i]);
+         }
+         next:;
+@@ -352,11 +353,12 @@ bool SimpSolver::merge(const Clause& _ps
+     for (int i = 0; i < qs.size(); i++){
+         if (var(__qs[i]) != v){
+             for (int j = 0; j < ps.size(); j++)
+-                if (var(__ps[j]) == var(__qs[i]))
++                if (var(__ps[j]) == var(__qs[i])) {
+                     if (__ps[j] == ~__qs[i])
+                         return false;
+                     else
+                         goto next;
++                }
+             size++;
+         }
+         next:;
+diff -rupN glucose-syrup.orig/utils/Makefile glucose-syrup.new/utils/Makefile
+--- glucose-syrup.orig/utils/Makefile	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/utils/Makefile	1970-01-01 01:00:00.000000000 +0100
+@@ -1,4 +0,0 @@
+-EXEC      = system_test
+-DEPDIR    = mtl
+-
+-include $(MROOT)/mtl/template.mk
+diff -rupN glucose-syrup.orig/utils/Options.cc glucose-syrup.new/utils/Options.cc
+--- glucose-syrup.orig/utils/Options.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/utils/Options.cc	2014-11-24 17:27:05.820948000 +0100
+@@ -42,11 +42,12 @@ void Glucose::parseOptions(int& argc, ch
+                 // fprintf(stderr, "checking %d: %s against flag <%s> (%s)\n", i, argv[i], Option::getOptionList()[k]->name, parsed_ok ? "ok" : "skip");
+             }
+ 
+-            if (!parsed_ok)
++            if (!parsed_ok) {
+                 if (strict && match(argv[i], "-"))
+                     fprintf(stderr, "ERROR! Unknown flag \"%s\". Use '--%shelp' for help.\n", argv[i], Option::getHelpPrefixString()), exit(1);
+                 else
+                     argv[j++] = argv[i];
++            }
+         }
+     }
+ 
+@@ -56,7 +57,7 @@ void Glucose::parseOptions(int& argc, ch
+ 
+ void Glucose::setUsageHelp      (const char* str){ Option::getUsageString() = str; }
+ void Glucose::setHelpPrefixStr  (const char* str){ Option::getHelpPrefixString() = str; }
+-void Glucose::printUsageAndExit (int argc, char** argv, bool verbose)
++void Glucose::printUsageAndExit (int, char** argv, bool verbose)
+ {
+     const char* usage = Option::getUsageString();
+     if (usage != NULL)
+diff -rupN glucose-syrup.orig/utils/Options.h glucose-syrup.new/utils/Options.h
+--- glucose-syrup.orig/utils/Options.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup.new/utils/Options.h	2014-11-24 17:24:11.429609000 +0100
+@@ -60,7 +60,7 @@ class Option
+     struct OptionLt {
+         bool operator()(const Option* x, const Option* y) {
+             int test1 = strcmp(x->category, y->category);
+-            return test1 < 0 || test1 == 0 && strcmp(x->type_name, y->type_name) < 0;
++            return test1 < 0 || (test1 == 0 && strcmp(x->type_name, y->type_name) < 0);
+         }
+     };
+ 
