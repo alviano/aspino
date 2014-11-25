@@ -74,7 +74,7 @@ int main(int argc, char** argv)
     
     if(FLAGS_mode == "asp")
 //        solver = new AspSolver();
-        ;
+        { cerr << "ASP is not currently supported." << endl; exit(-1); }
     else if(FLAGS_mode == "sat")
         solver = new SatSolver();
     else if(FLAGS_mode == "maxsat")

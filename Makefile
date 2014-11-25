@@ -29,7 +29,7 @@ GCC = g++
 CXX = $(GCC)
 CXXFLAGS = $(cxxflags.$(BUILD)) -Isrc/glucose-syrup -Wall -Wextra
 LINK = $(GCC)
-LINKFLAGS = $(linkflags.$(BUILD)) -lm -lz -lgflags -lpthread
+LINKFLAGS = $(linkflags.$(BUILD)) -lm -lz -lgflags
 
 SRCS = $(shell find $(SOURCE_DIR) -name '*.cc')
 
