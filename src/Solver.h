@@ -59,7 +59,7 @@ public:
     
     virtual void interrupt() = 0;
     virtual void exit(int code) { _exit(code); }
-    
+
     virtual void parse(gzFile in) = 0;
     virtual bool simplify() = 0;
     virtual bool eliminate(bool turn_off_elim) = 0;

@@ -56,8 +56,8 @@ int main(int argc, char** argv)
     signal(SIGTERM, SIGINT_interrupt);
 
     google::SetUsageMessage(string()
-        + "Solve ASP or SAT problems read from STDIN.\n"
-        + "usage: " + argv[0] + " [flags]");
+        + "Solve ASP or SAT problems read from STDIN or provided as command-line argument.\n"
+        + "usage: " + argv[0] + " [flags] [input-file]");
 
     google::RegisterFlagValidator(&FLAGS_mode, &validate_mode);
     google::RegisterFlagValidator(&FLAGS_maxsat_strat, &validate_maxsat_strat);
@@ -75,7 +75,12 @@ int main(int argc, char** argv)
     else
         assert(0);
     
-    gzFile in = gzdopen(0, "rb");
+    if(argc > 2) {
+        cerr << "Extra argument: " << argv[2] << endl;
+        solver->exit(-1);
+    }
+
+    gzFile in = argc == 1 ? gzdopen(0, "rb") : gzopen(argv[1], "rb");
     solver->parse(in);
     gzclose(in);
 
