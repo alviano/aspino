@@ -1,11 +1,18 @@
 def decodeModels(string):
     models = []
 
+    model = set()
     for line in string.split("\n"):
         line = line.strip()
-        if len(line) > 0 and line[0] == 'v':
-            models.append(set(line[2:].split(" ")))
-            
+        if len(line) == 0: continue
+        if line[0] == 'v':
+            model = model | set(line[2:].split(" "))
+        elif line[0] == 'c' and len(model) > 0:
+            models.append(model)
+            model = set()
+
+    if len(model) > 0:
+        models.append(model)
     return models
 
 def checkModel(model):

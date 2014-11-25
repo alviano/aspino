@@ -67,11 +67,6 @@ lbool SatSolver::solve() {
 
     solves++;
 
-//    max_learnts               = nClauses() * learntsize_factor;
-//    learntsize_adjust_confl   = learntsize_adjust_start_confl;
-//    learntsize_adjust_cnt     = (int)learntsize_adjust_confl;
-//    status = l_Undef;
-
     solve_();
 
     return status;
@@ -83,18 +78,22 @@ lbool SatSolver::solve(int n) {
 
     solves++;
 
-//    max_learnts               = nClauses() * learntsize_factor;
-//    learntsize_adjust_confl   = learntsize_adjust_start_confl;
-//    learntsize_adjust_cnt     = (int)learntsize_adjust_confl;
-//    status = l_Undef;
-
     lbool ret = l_False;
     int count = 0;
     for(;;) {
         solve_();
-        if(status == l_False) break;
+        if(status == l_False) {
+            if(conflict.size() == 0) ok = false;
+            break;
+        }
         assert(status == l_True);
         if(++count == 1) printStatus();
+        
+        // Extend & copy model:
+        model.growTo(nVars());
+        for (int i = 0; i < nVars(); i++) model[i] = value(i);
+        Minisat::SimpSolver::extendModel();
+        
         cout << "c Model " << count << endl;
         printModel();
         ret = l_True;
@@ -114,8 +113,6 @@ void SatSolver::solve_() {
     // Search:
     int curr_restarts = 0;
     while(status == l_Undef) {
-//        double rest_base = luby_restart ? luby(restart_inc, curr_restarts) : pow(restart_inc, curr_restarts);
-//        status = search(rest_base * restart_first);
         status = search(0);
         if(!withinBudget()) break;
         curr_restarts++;
@@ -125,99 +122,7 @@ void SatSolver::solve_() {
         ok = false;
 }
 
-//lbool SatSolver::search(int nof_conflicts)
-//{
-//    assert(ok);
-//    int         backtrack_level;
-//    int         conflictC = 0;
-//    vec<Lit>    learnt_clause;
-//    starts++;
-//
-//    for (;;){
-//        CRef confl;
-//        do {
-//            confl = propagate();
-//            if(confl != CRef_Undef) break;
-//            confl = morePropagate();
-//            if(confl != CRef_Undef) break;
-//        }while(nextToPropagateByUnit() < trail.size());
-//
-//        if (confl != CRef_Undef){
-//            // CONFLICT
-//            conflicts++; conflictC++;
-//            if (decisionLevel() == 0) return l_False;
-//
-//            learnt_clause.clear();
-//            analyze(confl, learnt_clause, backtrack_level);
-//            cancelUntil(backtrack_level);
-//
-//            if (learnt_clause.size() == 1){
-//                uncheckedEnqueue(learnt_clause[0]);
-//            }else{
-//                CRef cr = ca.alloc(learnt_clause, true);
-//                learnts.push(cr);
-//                attachClause(cr);
-//                claBumpActivity(ca[cr]);
-//                uncheckedEnqueue(learnt_clause[0], cr);
-//            }
-//
-//            varDecayActivity();
-//            claDecayActivity();
-//
-//            if (--learntsize_adjust_cnt == 0){
-//                learntsize_adjust_confl *= learntsize_adjust_inc;
-//                learntsize_adjust_cnt    = (int)learntsize_adjust_confl;
-//                max_learnts             *= learntsize_inc;
-//            }
-//
-//        }else{
-//            // NO CONFLICT
-//            if ((nof_conflicts >= 0 && conflictC >= nof_conflicts) || !withinBudget()){
-//                // Reached bound on number of conflicts:
-//                progress_estimate = progressEstimate();
-//                cancelUntil(assumptions.size());
-//                return l_Undef; }
-//
-//            // Simplify the set of problem clauses:
-//            if (decisionLevel() == 0 && !simplify())
-//                return l_False;
-//
-//            if (learnts.size()-nAssigns() >= max_learnts)
-//                // Reduce the set of learnt clauses:
-//                reduceDB();
-//
-//            Lit next = lit_Undef;
-//            while (decisionLevel() < assumptions.size()){
-//                // Perform user provided assumption:
-//                Lit p = assumptions[decisionLevel()];
-//                if (value(p) == l_True){
-//                    // Dummy decision level:
-//                    newDecisionLevel();
-//                }else if (value(p) == l_False){
-//                    analyzeFinal(~p, conflict);
-//                    return l_False;
-//                }else{
-//                    next = p;
-//                    break;
-//                }
-//            }
-//
-//            if (next == lit_Undef){
-//                // New variable decision:
-//                decisions++;
-//                next = pickBranchLit();
-//
-//                if (next == lit_Undef)
-//                    // Model found:
-//                    return l_True;
-//            }
-//
-//            // Increase decision level and enqueue 'next'
-//            newDecisionLevel();
-//            uncheckedEnqueue(next);
-//        }
-//    }
-//}
+// This is almost function search from glucose
 lbool SatSolver::search(int)
 {
     assert(ok);
@@ -360,7 +265,7 @@ void SatSolver::printModel() const {
     if(status != l_True) return;
     cout << "v";
     for(int i = 0; i < nInVars(); i++)
-        cout << " " << (value(i) == l_False ? "-" : "") << (i+1);
+        cout << " " << (model[i] == l_False ? "-" : "") << (i+1);
     cout << endl;
 }
 

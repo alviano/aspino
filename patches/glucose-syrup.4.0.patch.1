@@ -1,6 +1,6 @@
-diff -rupN glucose-syrup.orig/README glucose-syrup.new/README
---- glucose-syrup.orig/README	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/README	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/README glucose-syrup/README
+--- glucose-syrup.previous/README	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/README	1970-01-01 01:00:00.000000000 +0100
 @@ -1,24 +0,0 @@
 -Directory overview:
 -==================
@@ -27,16 +27,16 @@ diff -rupN glucose-syrup.orig/README glucose-syrup.new/README
 -
 -in parallel directory:  ./glucose-syrup --help
 \ No newline at end of file
-diff -rupN glucose-syrup.orig/core/Makefile glucose-syrup.new/core/Makefile
---- glucose-syrup.orig/core/Makefile	2014-10-03 11:10:21.000000000 +0200
-+++ glucose-syrup.new/core/Makefile	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/core/Makefile glucose-syrup/core/Makefile
+--- glucose-syrup.previous/core/Makefile	2014-10-03 11:10:21.000000000 +0200
++++ glucose-syrup/core/Makefile	1970-01-01 01:00:00.000000000 +0100
 @@ -1,3 +0,0 @@
 -PHONY:
 -	@echo "** Careful ** Since 4.0 you have to use the simp or parallel directory only for typing make"
 -
-diff -rupN glucose-syrup.orig/core/Solver.cc glucose-syrup.new/core/Solver.cc
---- glucose-syrup.orig/core/Solver.cc	2014-10-03 11:10:21.000000000 +0200
-+++ glucose-syrup.new/core/Solver.cc	2014-11-24 17:29:02.807180000 +0100
+diff -rupN glucose-syrup.previous/core/Solver.cc glucose-syrup/core/Solver.cc
+--- glucose-syrup.previous/core/Solver.cc	2014-10-03 11:10:21.000000000 +0200
++++ glucose-syrup/core/Solver.cc	2014-11-25 12:06:33.013665550 +0100
 @@ -931,7 +931,7 @@ void Solver::uncheckedEnqueue(Lit p, CRe
  CRef Solver::propagate() {
      CRef confl = CRef_Undef;
@@ -92,9 +92,9 @@ diff -rupN glucose-syrup.orig/core/Solver.cc glucose-syrup.new/core/Solver.cc
 -void Solver::parallelImportClauseDuringConflictAnalysis(Clause &c,CRef confl) {
 +void Solver::parallelImportClauseDuringConflictAnalysis(Clause &,CRef) {
  }
-diff -rupN glucose-syrup.orig/mtl/Vec.h glucose-syrup.new/mtl/Vec.h
---- glucose-syrup.orig/mtl/Vec.h	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/mtl/Vec.h	2014-11-24 17:24:33.774037000 +0100
+diff -rupN glucose-syrup.previous/mtl/Vec.h glucose-syrup/mtl/Vec.h
+--- glucose-syrup.previous/mtl/Vec.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/mtl/Vec.h	2014-11-25 12:06:33.013665550 +0100
 @@ -103,7 +103,7 @@ template<class T>
  void vec<T>::capacity(int min_cap) {
      if (cap >= min_cap) return;
@@ -104,9 +104,9 @@ diff -rupN glucose-syrup.orig/mtl/Vec.h glucose-syrup.new/mtl/Vec.h
          throw OutOfMemoryException();
   }
  
-diff -rupN glucose-syrup.orig/mtl/config.mk glucose-syrup.new/mtl/config.mk
---- glucose-syrup.orig/mtl/config.mk	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/mtl/config.mk	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/mtl/config.mk glucose-syrup/mtl/config.mk
+--- glucose-syrup.previous/mtl/config.mk	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/mtl/config.mk	1970-01-01 01:00:00.000000000 +0100
 @@ -1,6 +0,0 @@
 -##
 -##  This file is for system specific configurations. For instance, on
@@ -114,9 +114,9 @@ diff -rupN glucose-syrup.orig/mtl/config.mk glucose-syrup.new/mtl/config.mk
 -##
 -##  CFLAGS += -I/usr/local/include
 -##  LFLAGS += -L/usr/local/lib
-diff -rupN glucose-syrup.orig/mtl/template.mk glucose-syrup.new/mtl/template.mk
---- glucose-syrup.orig/mtl/template.mk	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/mtl/template.mk	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/mtl/template.mk glucose-syrup/mtl/template.mk
+--- glucose-syrup.previous/mtl/template.mk	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/mtl/template.mk	1970-01-01 01:00:00.000000000 +0100
 @@ -1,107 +0,0 @@
 -##
 -##  Template makefile for Standard, Profile, Debug, Release, and Release-static versions
@@ -225,9 +225,9 @@ diff -rupN glucose-syrup.orig/mtl/template.mk glucose-syrup.new/mtl/template.mk
 -
 --include $(MROOT)/mtl/config.mk
 --include depend.mk
-diff -rupN glucose-syrup.orig/parallel/ClausesBuffer.cc glucose-syrup.new/parallel/ClausesBuffer.cc
---- glucose-syrup.orig/parallel/ClausesBuffer.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/ClausesBuffer.cc	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/ClausesBuffer.cc glucose-syrup/parallel/ClausesBuffer.cc
+--- glucose-syrup.previous/parallel/ClausesBuffer.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/ClausesBuffer.cc	1970-01-01 01:00:00.000000000 +0100
 @@ -1,235 +0,0 @@
 -/**********************************************************************************[ClausesBuffer.cc]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -464,9 +464,9 @@ diff -rupN glucose-syrup.orig/parallel/ClausesBuffer.cc glucose-syrup.new/parall
 -
 -//=================================================================================================
 -
-diff -rupN glucose-syrup.orig/parallel/ClausesBuffer.h glucose-syrup.new/parallel/ClausesBuffer.h
---- glucose-syrup.orig/parallel/ClausesBuffer.h	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/ClausesBuffer.h	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/ClausesBuffer.h glucose-syrup/parallel/ClausesBuffer.h
+--- glucose-syrup.previous/parallel/ClausesBuffer.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/ClausesBuffer.h	1970-01-01 01:00:00.000000000 +0100
 @@ -1,114 +0,0 @@
 -/***************************************************************************************[ClausesBuffer.h]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -582,9 +582,9 @@ diff -rupN glucose-syrup.orig/parallel/ClausesBuffer.h glucose-syrup.new/paralle
 -//=================================================================================================
 -
 -#endif
-diff -rupN glucose-syrup.orig/parallel/Main.cc glucose-syrup.new/parallel/Main.cc
---- glucose-syrup.orig/parallel/Main.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/Main.cc	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/Main.cc glucose-syrup/parallel/Main.cc
+--- glucose-syrup.previous/parallel/Main.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/Main.cc	1970-01-01 01:00:00.000000000 +0100
 @@ -1,254 +0,0 @@
 -/***************************************************************************************[Main.cc]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -840,17 +840,17 @@ diff -rupN glucose-syrup.orig/parallel/Main.cc glucose-syrup.new/parallel/Main.c
 -        exit(0);
 -    }
 -}
-diff -rupN glucose-syrup.orig/parallel/Makefile glucose-syrup.new/parallel/Makefile
---- glucose-syrup.orig/parallel/Makefile	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/Makefile	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/Makefile glucose-syrup/parallel/Makefile
+--- glucose-syrup.previous/parallel/Makefile	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/Makefile	1970-01-01 01:00:00.000000000 +0100
 @@ -1,4 +0,0 @@
 -EXEC      = glucose-syrup
 -DEPDIR    = mtl utils core simp
 -MROOT = $(PWD)/..
 -include $(MROOT)/mtl/template.mk
-diff -rupN glucose-syrup.orig/parallel/MultiSolvers.cc glucose-syrup.new/parallel/MultiSolvers.cc
---- glucose-syrup.orig/parallel/MultiSolvers.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/MultiSolvers.cc	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/MultiSolvers.cc glucose-syrup/parallel/MultiSolvers.cc
+--- glucose-syrup.previous/parallel/MultiSolvers.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/MultiSolvers.cc	1970-01-01 01:00:00.000000000 +0100
 @@ -1,543 +0,0 @@
 -/***************************************************************************************[MultiSolvers.cc]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -1395,9 +1395,9 @@ diff -rupN glucose-syrup.orig/parallel/MultiSolvers.cc glucose-syrup.new/paralle
 -
 -}
 -
-diff -rupN glucose-syrup.orig/parallel/MultiSolvers.h glucose-syrup.new/parallel/MultiSolvers.h
---- glucose-syrup.orig/parallel/MultiSolvers.h	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/MultiSolvers.h	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/MultiSolvers.h glucose-syrup/parallel/MultiSolvers.h
+--- glucose-syrup.previous/parallel/MultiSolvers.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/MultiSolvers.h	1970-01-01 01:00:00.000000000 +0100
 @@ -1,182 +0,0 @@
 -/***************************************************************************************[MultiSolvers.h]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -1581,9 +1581,9 @@ diff -rupN glucose-syrup.orig/parallel/MultiSolvers.h glucose-syrup.new/parallel
 -}
 -#endif
 -
-diff -rupN glucose-syrup.orig/parallel/ParallelSolver.cc glucose-syrup.new/parallel/ParallelSolver.cc
---- glucose-syrup.orig/parallel/ParallelSolver.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/ParallelSolver.cc	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/ParallelSolver.cc glucose-syrup/parallel/ParallelSolver.cc
+--- glucose-syrup.previous/parallel/ParallelSolver.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/ParallelSolver.cc	1970-01-01 01:00:00.000000000 +0100
 @@ -1,490 +0,0 @@
 -/***************************************************************************************[ParallelSolver.cc]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -2075,9 +2075,9 @@ diff -rupN glucose-syrup.orig/parallel/ParallelSolver.cc glucose-syrup.new/paral
 -    return status;
 -
 -}
-diff -rupN glucose-syrup.orig/parallel/ParallelSolver.h glucose-syrup.new/parallel/ParallelSolver.h
---- glucose-syrup.orig/parallel/ParallelSolver.h	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/ParallelSolver.h	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/ParallelSolver.h glucose-syrup/parallel/ParallelSolver.h
+--- glucose-syrup.previous/parallel/ParallelSolver.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/ParallelSolver.h	1970-01-01 01:00:00.000000000 +0100
 @@ -1,144 +0,0 @@
 -/**************************************************************************************[ParallelSolver.h]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -2223,9 +2223,9 @@ diff -rupN glucose-syrup.orig/parallel/ParallelSolver.h glucose-syrup.new/parall
 -}
 -#endif	/* PARALLELSOLVER_H */
 -
-diff -rupN glucose-syrup.orig/parallel/SharedCompanion.cc glucose-syrup.new/parallel/SharedCompanion.cc
---- glucose-syrup.orig/parallel/SharedCompanion.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/SharedCompanion.cc	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/SharedCompanion.cc glucose-syrup/parallel/SharedCompanion.cc
+--- glucose-syrup.previous/parallel/SharedCompanion.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/SharedCompanion.cc	1970-01-01 01:00:00.000000000 +0100
 @@ -1,167 +0,0 @@
 -/***************************************************************************************[SharedCompanion.cc]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -2394,9 +2394,9 @@ diff -rupN glucose-syrup.orig/parallel/SharedCompanion.cc glucose-syrup.new/para
 -
 -
 -
-diff -rupN glucose-syrup.orig/parallel/SharedCompanion.h glucose-syrup.new/parallel/SharedCompanion.h
---- glucose-syrup.orig/parallel/SharedCompanion.h	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/SharedCompanion.h	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/SharedCompanion.h glucose-syrup/parallel/SharedCompanion.h
+--- glucose-syrup.previous/parallel/SharedCompanion.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/SharedCompanion.h	1970-01-01 01:00:00.000000000 +0100
 @@ -1,122 +0,0 @@
 -/***************************************************************************************[SharedCompanion.h]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -2520,9 +2520,9 @@ diff -rupN glucose-syrup.orig/parallel/SharedCompanion.h glucose-syrup.new/paral
 -};
 -}
 -#endif
-diff -rupN glucose-syrup.orig/parallel/SolverCompanion.cc glucose-syrup.new/parallel/SolverCompanion.cc
---- glucose-syrup.orig/parallel/SolverCompanion.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/SolverCompanion.cc	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/SolverCompanion.cc glucose-syrup/parallel/SolverCompanion.cc
+--- glucose-syrup.previous/parallel/SolverCompanion.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/SolverCompanion.cc	1970-01-01 01:00:00.000000000 +0100
 @@ -1,87 +0,0 @@
 -/***************************************************************************************[SolverCompanion.cc]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -2611,9 +2611,9 @@ diff -rupN glucose-syrup.orig/parallel/SolverCompanion.cc glucose-syrup.new/para
 -}
 -
 -
-diff -rupN glucose-syrup.orig/parallel/SolverCompanion.h glucose-syrup.new/parallel/SolverCompanion.h
---- glucose-syrup.orig/parallel/SolverCompanion.h	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/SolverCompanion.h	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/SolverCompanion.h glucose-syrup/parallel/SolverCompanion.h
+--- glucose-syrup.previous/parallel/SolverCompanion.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/SolverCompanion.h	1970-01-01 01:00:00.000000000 +0100
 @@ -1,79 +0,0 @@
 -/***************************************************************************************[SolverCompanion.h]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -2694,9 +2694,9 @@ diff -rupN glucose-syrup.orig/parallel/SolverCompanion.h glucose-syrup.new/paral
 -}
 -#endif
 -
-diff -rupN glucose-syrup.orig/parallel/SolverConfiguration.cc glucose-syrup.new/parallel/SolverConfiguration.cc
---- glucose-syrup.orig/parallel/SolverConfiguration.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/SolverConfiguration.cc	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/SolverConfiguration.cc glucose-syrup/parallel/SolverConfiguration.cc
+--- glucose-syrup.previous/parallel/SolverConfiguration.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/SolverConfiguration.cc	1970-01-01 01:00:00.000000000 +0100
 @@ -1,131 +0,0 @@
 -/***************************************************************************************[SolverConfiguration.cc]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -2829,9 +2829,9 @@ diff -rupN glucose-syrup.orig/parallel/SolverConfiguration.cc glucose-syrup.new/
 -       }
 -   }
 - }
-diff -rupN glucose-syrup.orig/parallel/SolverConfiguration.h glucose-syrup.new/parallel/SolverConfiguration.h
---- glucose-syrup.orig/parallel/SolverConfiguration.h	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/parallel/SolverConfiguration.h	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/parallel/SolverConfiguration.h glucose-syrup/parallel/SolverConfiguration.h
+--- glucose-syrup.previous/parallel/SolverConfiguration.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/parallel/SolverConfiguration.h	1970-01-01 01:00:00.000000000 +0100
 @@ -1,68 +0,0 @@
 -/***************************************************************************************[SolverConfiguration.h]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -2901,9 +2901,9 @@ diff -rupN glucose-syrup.orig/parallel/SolverConfiguration.h glucose-syrup.new/p
 -
 -}
 -#endif
-diff -rupN glucose-syrup.orig/simp/Main.cc glucose-syrup.new/simp/Main.cc
---- glucose-syrup.orig/simp/Main.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/simp/Main.cc	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/simp/Main.cc glucose-syrup/simp/Main.cc
+--- glucose-syrup.previous/simp/Main.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/simp/Main.cc	1970-01-01 01:00:00.000000000 +0100
 @@ -1,294 +0,0 @@
 -/***************************************************************************************[Main.cc]
 - Glucose -- Copyright (c) 2009-2014, Gilles Audemard, Laurent Simon
@@ -3199,18 +3199,29 @@ diff -rupN glucose-syrup.orig/simp/Main.cc glucose-syrup.new/simp/Main.cc
 -        exit(0);
 -    }
 -}
-diff -rupN glucose-syrup.orig/simp/Makefile glucose-syrup.new/simp/Makefile
---- glucose-syrup.orig/simp/Makefile	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/simp/Makefile	1970-01-01 01:00:00.000000000 +0100
+diff -rupN glucose-syrup.previous/simp/Makefile glucose-syrup/simp/Makefile
+--- glucose-syrup.previous/simp/Makefile	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/simp/Makefile	1970-01-01 01:00:00.000000000 +0100
 @@ -1,5 +0,0 @@
 -EXEC = glucose
 -DEPDIR    = mtl utils core
 -MROOT = $(PWD)/..
 -
 -include $(MROOT)/mtl/template.mk
-diff -rupN glucose-syrup.orig/simp/SimpSolver.cc glucose-syrup.new/simp/SimpSolver.cc
---- glucose-syrup.orig/simp/SimpSolver.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/simp/SimpSolver.cc	2014-11-24 17:26:18.312038000 +0100
+diff -rupN glucose-syrup.previous/simp/SimpSolver.cc glucose-syrup/simp/SimpSolver.cc
+--- glucose-syrup.previous/simp/SimpSolver.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/simp/SimpSolver.cc	2014-11-25 12:07:16.920868739 +0100
+@@ -188,8 +188,8 @@ lbool SimpSolver::solve_(bool do_simp, b
+ 
+     if (result == l_True)
+         result = Solver::solve_();
+-    else if (verbosity >= 1)
+-        printf("===============================================================================\n");
++//    else if (verbosity >= 1)
++//        printf("===============================================================================\n");
+ 
+     if (result == l_True)
+         extendModel();
 @@ -318,11 +318,12 @@ bool SimpSolver::merge(const Clause& _ps
      for (int i = 0; i < qs.size(); i++){
          if (var(qs[i]) != v){
@@ -3239,17 +3250,76 @@ diff -rupN glucose-syrup.orig/simp/SimpSolver.cc glucose-syrup.new/simp/SimpSolv
              size++;
          }
          next:;
-diff -rupN glucose-syrup.orig/utils/Makefile glucose-syrup.new/utils/Makefile
---- glucose-syrup.orig/utils/Makefile	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/utils/Makefile	1970-01-01 01:00:00.000000000 +0100
+@@ -415,9 +417,9 @@ bool SimpSolver::implied(const vec<Lit>&
+ 
+ 
+ // Backward subsumption + backward subsumption resolution
+-bool SimpSolver::backwardSubsumptionCheck(bool verbose)
++bool SimpSolver::backwardSubsumptionCheck(bool)
+ {
+-    int cnt = 0;
++//    int cnt = 0;
+     int subsumed = 0;
+     int deleted_literals = 0;
+     assert(decisionLevel() == 0);
+@@ -442,8 +444,8 @@ bool SimpSolver::backwardSubsumptionChec
+ 
+         if (c.mark()) continue;
+ 
+-        if (verbose && verbosity >= 2 && cnt++ % 1000 == 0)
+-            printf("subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", subsumption_queue.size(), subsumed, deleted_literals);
++//        if (verbose && verbosity >= 2 && cnt++ % 1000 == 0)
++//            printf("subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", subsumption_queue.size(), subsumed, deleted_literals);
+ 
+         assert(c.size() > 1 || value(c[0]) == l_True);    // Unit-clauses should have been propagated before this point.
+ 
+@@ -716,8 +718,8 @@ bool SimpSolver::eliminate(bool turn_off
+ 
+             if (isEliminated(elim) || value(elim) != l_Undef) continue;
+ 
+-            if (verbosity >= 2 && cnt % 100 == 0)
+-                printf("elimination left: %10d\r", elim_heap.size());
++//            if (verbosity >= 2 && cnt % 100 == 0)
++//                printf("elimination left: %10d\r", elim_heap.size());
+ 
+             if (use_asymm){
+                 // Temporarily freeze variable. Otherwise, it would immediately end up on the queue again:
+@@ -760,9 +762,9 @@ bool SimpSolver::eliminate(bool turn_off
+         checkGarbage();
+     }
+ 
+-    if (verbosity >= 0 && elimclauses.size() > 0)
+-        printf("c |  Eliminated clauses:     %10.2f Mb                                                                |\n", 
+-               double(elimclauses.size() * sizeof(uint32_t)) / (1024*1024));
++//    if (verbosity >= 0 && elimclauses.size() > 0)
++//        printf("c |  Eliminated clauses:     %10.2f Mb                                                                |\n", 
++//               double(elimclauses.size() * sizeof(uint32_t)) / (1024*1024));
+ 
+                
+     return ok;
+@@ -819,8 +821,8 @@ void SimpSolver::garbageCollect()
+     to.extra_clause_field = ca.extra_clause_field; // NOTE: this is important to keep (or lose) the extra fields.
+     relocAll(to);
+     Solver::relocAll(to);
+-    if (verbosity >= 2)
+-        printf("|  Garbage collection:   %12d bytes => %12d bytes             |\n", 
+-               ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
++//    if (verbosity >= 2)
++//        printf("|  Garbage collection:   %12d bytes => %12d bytes             |\n", 
++//               ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
+     to.moveTo(ca);
+ }
+diff -rupN glucose-syrup.previous/utils/Makefile glucose-syrup/utils/Makefile
+--- glucose-syrup.previous/utils/Makefile	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/utils/Makefile	1970-01-01 01:00:00.000000000 +0100
 @@ -1,4 +0,0 @@
 -EXEC      = system_test
 -DEPDIR    = mtl
 -
 -include $(MROOT)/mtl/template.mk
-diff -rupN glucose-syrup.orig/utils/Options.cc glucose-syrup.new/utils/Options.cc
---- glucose-syrup.orig/utils/Options.cc	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/utils/Options.cc	2014-11-24 17:27:05.820948000 +0100
+diff -rupN glucose-syrup.previous/utils/Options.cc glucose-syrup/utils/Options.cc
+--- glucose-syrup.previous/utils/Options.cc	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/utils/Options.cc	2014-11-25 12:06:33.021665406 +0100
 @@ -42,11 +42,12 @@ void Glucose::parseOptions(int& argc, ch
                  // fprintf(stderr, "checking %d: %s against flag <%s> (%s)\n", i, argv[i], Option::getOptionList()[k]->name, parsed_ok ? "ok" : "skip");
              }
@@ -3273,9 +3343,9 @@ diff -rupN glucose-syrup.orig/utils/Options.cc glucose-syrup.new/utils/Options.c
  {
      const char* usage = Option::getUsageString();
      if (usage != NULL)
-diff -rupN glucose-syrup.orig/utils/Options.h glucose-syrup.new/utils/Options.h
---- glucose-syrup.orig/utils/Options.h	2014-10-03 11:10:22.000000000 +0200
-+++ glucose-syrup.new/utils/Options.h	2014-11-24 17:24:11.429609000 +0100
+diff -rupN glucose-syrup.previous/utils/Options.h glucose-syrup/utils/Options.h
+--- glucose-syrup.previous/utils/Options.h	2014-10-03 11:10:22.000000000 +0200
++++ glucose-syrup/utils/Options.h	2014-11-25 12:06:33.025665333 +0100
 @@ -60,7 +60,7 @@ class Option
      struct OptionLt {
          bool operator()(const Option* x, const Option* y) {
