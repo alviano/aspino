@@ -36,8 +36,17 @@ SRCS = $(shell find $(SOURCE_DIR) -name '*.cc')
 OBJS = $(patsubst $(SOURCE_DIR)%.cc,$(BUILD_DIR)%.o, $(SRCS))
 DEPS = $(patsubst $(SOURCE_DIR)%.cc,$(BUILD_DIR)%.d, $(SRCS))
 
-all: $(BINARY)
+all: glucose-syrup $(BINARY)
 
+glucose-syrup:
+	@if [ ! -d src/glucose-syrup ]; then \
+	    echo "************************************************************"; \
+	    echo "* Hey! Directory src/glucose-syrup is missing.             *"; \
+	    echo "* Did you run bootstrap.sh?                                *"; \
+	    echo "************************************************************"; \
+	    exit 1; \
+    fi
+	
 $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -59,6 +68,7 @@ include tests/Makefile.tests.inc
 
 
 ########## Clean
+.PHONY: clean-dep clean distclean
 
 clean-dep:
 	rm -f $(DEPS)
