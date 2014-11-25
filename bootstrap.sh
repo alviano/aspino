@@ -24,7 +24,7 @@ fi
 
 echo "Building gflags 2.1.1..."
 cd $DIRNAME/lib; tar xf gflags-2.1.1.tar.gz; cd $OLDPATH
-cd $DIRNAME/lib/gflags-2.1.1; mkdir build; cd build; cmake ..; make; cd $OLDPATH
+cd $DIRNAME/lib/gflags-2.1.1; mkdir -p build; cd build; cmake ..; make; cd $OLDPATH
 
 echo
 echo "You can now run make!"
