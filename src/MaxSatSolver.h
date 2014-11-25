@@ -30,6 +30,8 @@ public:
     MaxSatSolver();
     virtual ~MaxSatSolver();
     
+    virtual void interrupt() { cout << "s UNKNOWN" << endl; this->exit(1); }
+    
     virtual void parse(gzFile in);
     
     void addWeightedClause(vec<Lit>& lits, long weight);

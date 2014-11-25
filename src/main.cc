@@ -50,19 +50,10 @@ static aspino::Solver* solver;
 
 static void SIGINT_interrupt(int) { solver->interrupt(); }
 
-static void SIGINT_exit(int) { solver->exit(1); }
-
 int main(int argc, char** argv)
 {
-    // Use signal handlers that forcibly quit until the solver will be able to respond to
-    // interrupts:
-    signal(SIGINT, SIGINT_exit);
-    signal(SIGXCPU,SIGINT_exit);
-
-    // Change to signal-handlers that will only notify the solver and allow it to terminate
-    // voluntarily:
     signal(SIGINT, SIGINT_interrupt);
-    signal(SIGXCPU,SIGINT_interrupt);
+    signal(SIGTERM, SIGINT_interrupt);
 
     google::SetUsageMessage(string()
         + "Solve ASP or SAT problems read from STDIN.\n"

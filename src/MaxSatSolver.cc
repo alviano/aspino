@@ -211,7 +211,7 @@ lbool MaxSatSolver::solve_(long limit) {
             continue;
         }
         
-        trace(maxsat, 2, "UNSAT! Conflict of size (before trim) " << conflict.size());
+        trace(maxsat, 2, "UNSAT! Conflict of size " << conflict.size());
         trace(maxsat, 10, "Conflict: " << conflict);
         
         if(conflict.size() == 0) return l_False;
@@ -219,20 +219,17 @@ lbool MaxSatSolver::solve_(long limit) {
         
         if(conflict.size() > 1) {
             addClause(conflict);
-            vec<Lit> copy;
-            int iter = 0;
+            int oldSize;
             do{
-                iter++;
-                conflict.moveTo(copy);
                 assumptions.clear();
-                for(int i = 0; i < copy.size(); i++) assumptions.push(~copy[i]);
+                for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
+                oldSize = conflict.size();
                 PseudoBooleanSolver::solve();
                 assert(status == l_False);
-                trace(maxsat, 2, "UNSAT! Conflict of size (after trim)  " << conflict.size());
+                trace(maxsat, 4, "Trim " << oldSize - conflict.size() << " literals from conflict");
                 trace(maxsat, 10, "Conflict: " << conflict);
                 cancelUntil(0);
-                trace(maxsat, 2, "DIFF " << copy.size() << " - " << conflict.size() << " = " << - conflict.size() + copy.size() << " - iteration " << iter);
-            }while(copy.size() > conflict.size() && conflict.size() > 1);
+            }while(oldSize > conflict.size() && conflict.size() > 1);
         }
         
 //        if(conflict.size() > 1) {
@@ -261,7 +258,7 @@ lbool MaxSatSolver::solve_(long limit) {
 //            }while(true);//}while(copy.size() > conflict.size());
 //        }
         
-        trace(maxsat, 4, "Analyze conflict of weight " << limit);
+        trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << limit);
         lowerbound += limit;
         cout << "o " << lowerbound << endl;
         (this->*corestrat)(limit);

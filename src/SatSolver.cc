@@ -268,7 +268,6 @@ void SatSolver::copyModel() {
 void SatSolver::printModel() const {
     if(status != l_True) return;
     assert(model.size() >= nInVars());
-    cout << nInVars() << endl;
     cout << "v";
     for(int i = 0; i < nInVars(); i++)
         cout << " " << (model[i] == l_False ? "-" : "") << (i+1);
