@@ -47,6 +47,8 @@ private:
     vec<long> weights;
     int lastSoftLiteral;
     
+    void sameSoftVar(Lit soft, long weight);
+    
     void sort();
     void detectLevels();
     long setAssumptions(long limit);

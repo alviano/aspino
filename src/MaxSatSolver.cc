@@ -59,6 +59,43 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0) {
 MaxSatSolver::~MaxSatSolver() {
 }
 
+void MaxSatSolver::sameSoftVar(Lit soft, long weight) {
+    assert(weights[var(soft)] != 0);
+    assert(decisionLevel() == 0);
+    int pos = 0;
+    for(int i = 0; i < softLiterals.size(); i++, pos++) if(var(softLiterals[i]) == var(soft)) break;
+    
+    if(softLiterals[pos] == soft) {
+        weights[var(soft)] += weight;
+        upperbound += weight;
+        return;
+    }
+        
+    if(weights[var(soft)] == weight) {
+        lowerbound += weight;
+        setFrozen(var(soft), false);
+        int j = 0;
+        for(int i = 0; i < softLiterals.size(); i++) {
+            if(softLiterals[i] == ~soft) continue;
+            softLiterals[j++] = softLiterals[i];
+        }
+        cout << j+1 << " " << softLiterals.size() << endl;
+        assert(softLiterals.size() == j+1);
+        softLiterals.shrink_(1);
+    }else if(weights[var(soft)] < weight) {
+        lowerbound += weights[var(soft)];
+        for(int i = 0; i < softLiterals.size(); i++) if(softLiterals[i] == ~soft) { softLiterals[i] = soft; break; }
+        weights[var(soft)] = weight - weights[var(soft)];
+        upperbound += weights[var(soft)];
+    }
+    else {
+        assert(weights[var(soft)] > weight);
+        lowerbound += weight;
+        weights[var(soft)] -= weight;
+        upperbound += weights[var(soft)];
+    }
+}
+
 void MaxSatSolver::addWeightedClause(vec<Lit>& lits, long weight) {
     Lit soft;
     if(lits.size() == 1)
@@ -72,8 +109,13 @@ void MaxSatSolver::addWeightedClause(vec<Lit>& lits, long weight) {
     }
 
     assert(weights.size() == nVars());
+    if(weights[var(soft)] != 0) {
+        sameSoftVar(soft, weight);
+        return;
+    }
+    
     softLiterals.push(soft);
-    assert(weights[var(soft)] == 0);
+    assert_msg(weights[var(soft)] == 0, lits);
     weights[var(soft)] = weight;
     upperbound += weight;
     setFrozen(var(soft), true);
@@ -84,7 +126,7 @@ void MaxSatSolver::parse(gzFile in_) {
 
     bool weighted = false;
     long top = -1;
-    long weight = -1;
+    long weight = 1;
     
     vec<Lit> lits;
     int vars = 0;
@@ -151,7 +193,7 @@ long MaxSatSolver::setAssumptions(long limit) {
 }
 
 lbool MaxSatSolver::solve() {
-    sort();
+//    sort();
     lastSoftLiteral = nVars();
 
     lbool ret = l_False;
