@@ -20,7 +20,8 @@
 
 #include "PseudoBooleanSolver.h"
 
-DECLARE_string(maxsatstrat);
+DECLARE_string(maxsat_strat);
+DECLARE_bool(maxsat_reitereted_disjoint_cores);
 
 namespace aspino {
 

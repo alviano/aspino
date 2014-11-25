@@ -20,16 +20,17 @@
 #include "core/Dimacs.h"
 #include "utils/algorithm.h"
 
-bool validate_maxsatstrat(const char* name, const string& value) {
+bool validate_maxsat_strat(const char* name, const string& value) {
     if(value == "one") return true;
     if(value == "pmres") return true;
     if(value == "pmres_split_conj") return true;
-    if(value == "pmreslog") return true;
+    if(value == "pmres_log") return true;
     cerr << "Invalid value for --" << name << ": " << value << "\n";
     return false;
 }
-DEFINE_string(maxsatstrat, "one", "Set optimization strategy. Valid values: one, pmres, pmreslog.");
+DEFINE_string(maxsat_strat, "one", "Set optimization strategy. Valid values: one, pmres, pmres_log, pmres_split_conj.");
 
+DEFINE_bool(maxsat_reitereted_disjoint_cores, true, "");
 
 namespace aspino {
 
@@ -48,10 +49,10 @@ static long parseLong(B& in) {
 
     
 MaxSatSolver::MaxSatSolver() : lowerbound(0) {
-    if(FLAGS_maxsatstrat == "one") corestrat = &MaxSatSolver::corestrat_one;
-    else if(FLAGS_maxsatstrat == "pmres") corestrat = &MaxSatSolver::corestrat_pmres;
-    else if(FLAGS_maxsatstrat == "pmres_split_conj") corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
-    else if(FLAGS_maxsatstrat == "pmreslog") corestrat = &MaxSatSolver::corestrat_pmreslog;
+    if(FLAGS_maxsat_strat == "one") corestrat = &MaxSatSolver::corestrat_one;
+    else if(FLAGS_maxsat_strat == "pmres") corestrat = &MaxSatSolver::corestrat_pmres;
+    else if(FLAGS_maxsat_strat == "pmres_split_conj") corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
+    else if(FLAGS_maxsat_strat == "pmres_log") corestrat = &MaxSatSolver::corestrat_pmreslog;
     else assert(0);
 }
 
@@ -167,7 +168,7 @@ lbool MaxSatSolver::solve() {
         assert(ret == l_True);
         
         do{
-            lastSoftLiteral = nVars(); //INT_MAX;
+            lastSoftLiteral = FLAGS_maxsat_reitereted_disjoint_cores ? nVars() : INT_MAX;
             long limit = 0;
             for(int i = 0; i < softLiterals.size(); i++) if(weights[var(softLiterals[i])] > limit) limit = weights[var(softLiterals[i])];
             ret = solve_(limit);
@@ -202,7 +203,6 @@ lbool MaxSatSolver::solve_(long limit) {
                 if(value(softLiterals[i]) == l_False) newupperbound += weights[var(softLiterals[i])];
             }
             if(newupperbound < upperbound) {
-                trace(maxsat, 8, "Decrease upper bound to " << newupperbound);
                 upperbound = newupperbound;
                 cout << "c ub " << upperbound << endl;
                 cancelUntil(0);
@@ -263,7 +263,6 @@ lbool MaxSatSolver::solve_(long limit) {
         
         trace(maxsat, 4, "Analyze conflict of weight " << limit);
         lowerbound += limit;
-        trace(maxsat, 8, "Increase lower bound to " << lowerbound);
         cout << "o " << lowerbound << endl;
         (this->*corestrat)(limit);
     }
