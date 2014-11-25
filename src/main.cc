@@ -55,13 +55,13 @@ int main(int argc, char** argv)
     signal(SIGINT, SIGINT_interrupt);
     signal(SIGTERM, SIGINT_interrupt);
 
-    google::SetUsageMessage(string()
+    gflags::SetUsageMessage(string()
         + "Solve ASP or SAT problems read from STDIN or provided as command-line argument.\n"
         + "usage: " + argv[0] + " [flags] [input-file]");
 
-    google::RegisterFlagValidator(&FLAGS_mode, &validate_mode);
-    google::RegisterFlagValidator(&FLAGS_maxsat_strat, &validate_maxsat_strat);
-    google::ParseCommandLineFlags(&argc, &argv, true);
+    gflags::RegisterFlagValidator(&FLAGS_mode, &validate_mode);
+    gflags::RegisterFlagValidator(&FLAGS_maxsat_strat, &validate_maxsat_strat);
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
     
     if(FLAGS_mode == "asp")
 //        solver = new AspSolver();

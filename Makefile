@@ -27,21 +27,35 @@ BUILD_DIR = build/$(BUILD)
 BINARY = $(BUILD_DIR)/aspino
 GCC = g++
 CXX = $(GCC)
-CXXFLAGS = $(cxxflags.$(BUILD)) -Isrc/glucose-syrup -Wall -Wextra
+CXXFLAGS = $(cxxflags.$(BUILD)) -Isrc/glucose-syrup -Ilib/gflags-2.1.1/build/include -Wall -Wextra
 LINK = $(GCC)
-LINKFLAGS = $(linkflags.$(BUILD)) -lm -lz -lgflags
+LINKFLAGS = $(linkflags.$(BUILD)) -Llib/gflags-2.1.1/build/lib 
+LIBS = -lm -lz -lgflags -lpthread
 
 SRCS = $(shell find $(SOURCE_DIR) -name '*.cc')
 
 OBJS = $(patsubst $(SOURCE_DIR)%.cc,$(BUILD_DIR)%.o, $(SRCS))
 DEPS = $(patsubst $(SOURCE_DIR)%.cc,$(BUILD_DIR)%.d, $(SRCS))
 
-all: glucose-syrup $(BINARY)
+EXTERN = glucose-syrup gflags
+
+.PHONY: $(EXTERN)
+
+all: $(EXTERN) $(BINARY)
 
 glucose-syrup:
 	@if [ ! -d src/glucose-syrup ]; then \
 	    echo "************************************************************"; \
 	    echo "* Hey! Directory src/glucose-syrup is missing.             *"; \
+	    echo "* Did you run bootstrap.sh?                                *"; \
+	    echo "************************************************************"; \
+	    exit 1; \
+    fi
+
+gflags:
+	@if [ ! -d lib/gflags-2.1.1 ]; then \
+	    echo "************************************************************"; \
+	    echo "* Hey! Directory lib/gflags is missing.                    *"; \
 	    echo "* Did you run bootstrap.sh?                                *"; \
 	    echo "************************************************************"; \
 	    exit 1; \
@@ -55,10 +69,10 @@ $(BUILD_DIR)/%.d: $(SOURCE_DIR)/%.cc
 	$(CXX) $(CXXFLAGS) -MM -MT '$(@:.d=.o)' $< -MF $@
 	
 $(BINARY): $(OBJS) $(DEPS)
-	$(LINK) $(LINKFLAGS) $(LIBS) $(OBJS) -o $(BINARY)
+	$(LINK) $(OBJS) -o $(BINARY) $(LINKFLAGS) $(LIBS)
 
 static: $(OBJS) $(DEPS)
-	$(LINK) $(LINKFLAGS) $(LIBS) $(OBJS) -static -o $(BINARY)
+	$(LINK) $(OBJS) -static -o $(BINARY) $(LINKFLAGS) $(LIBS)
 
 run: $(BINARY)
 	./$(BINARY)
