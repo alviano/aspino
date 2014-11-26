@@ -45,6 +45,7 @@ DEFINE_string(mode, "asp", "How to interpret input. Valid values: asp, sat, maxs
 DEFINE_int32(n, 1, "Number of desired solutions. Non-positive integers are interpreted as unbounded.");
 
 extern bool validate_maxsat_strat(const char* name, const string& value);
+extern bool validate_maxsat_disjcores(const char* name, const string& value);
 
 static aspino::Solver* solver;
 
@@ -61,6 +62,7 @@ int main(int argc, char** argv)
 
     gflags::RegisterFlagValidator(&FLAGS_mode, &validate_mode);
     gflags::RegisterFlagValidator(&FLAGS_maxsat_strat, &validate_maxsat_strat);
+    gflags::RegisterFlagValidator(&FLAGS_maxsat_disjcores, &validate_maxsat_disjcores);
     gflags::ParseCommandLineFlags(&argc, &argv, true);
     
     if(FLAGS_mode == "asp")

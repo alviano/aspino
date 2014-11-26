@@ -21,7 +21,7 @@
 #include "PseudoBooleanSolver.h"
 
 DECLARE_string(maxsat_strat);
-DECLARE_bool(maxsat_reitereted_disjoint_cores);
+DECLARE_string(maxsat_disjcores);
 
 namespace aspino {
 
@@ -60,6 +60,9 @@ private:
     void corestrat_pmres(long limit);
     void corestrat_pmres_split_conj(long limit);
     void corestrat_pmreslog(long limit);
+
+    enum DisjunctCores {NO = 0, PRE, ALL};
+    DisjunctCores disjcores;
 };
 
 

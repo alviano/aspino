@@ -30,7 +30,14 @@ bool validate_maxsat_strat(const char* name, const string& value) {
 }
 DEFINE_string(maxsat_strat, "one", "Set optimization strategy. Valid values: one, pmres, pmres_log, pmres_split_conj.");
 
-DEFINE_bool(maxsat_reitereted_disjoint_cores, true, "");
+bool validate_maxsat_disjcores(const char* name, const string& value) {
+    if(value == "no") return true;
+    if(value == "pre") return true;
+    if(value == "all") return true;
+    cerr << "Invalid value for --" << name << ": " << value << "\n";
+    return false;
+}
+DEFINE_string(maxsat_disjcores, "pre", "Set disjunct unsatisfiable cores policy. Valid values: no, pre, all.");
 
 namespace aspino {
 
@@ -53,6 +60,11 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     else if(FLAGS_maxsat_strat == "pmres") corestrat = &MaxSatSolver::corestrat_pmres;
     else if(FLAGS_maxsat_strat == "pmres_split_conj") corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
     else if(FLAGS_maxsat_strat == "pmres_log") corestrat = &MaxSatSolver::corestrat_pmreslog;
+    else assert(0);
+    
+    if(FLAGS_maxsat_disjcores == "no") disjcores = NO;
+    else if(FLAGS_maxsat_disjcores == "pre") disjcores = PRE;
+    else if(FLAGS_maxsat_disjcores == "all") disjcores = ALL;
     else assert(0);
 }
 
@@ -194,32 +206,35 @@ long MaxSatSolver::setAssumptions(long limit) {
 
 lbool MaxSatSolver::solve() {
 //    sort();
-    lastSoftLiteral = nVars();
+    lastSoftLiteral = disjcores == NO ? INT_MAX : nVars();
     firstLimit = LONG_MAX;
     
-    lbool ret = l_False;
-    for(;;) {
-        trace(maxsat, 1, "Preprocessing: determining disjoint unsatisfiable cores...");
-        ret = solve_();
-        trace(maxsat, 1, "Bounds after preprocessing: [" << lowerbound << ":" << upperbound << "]");
-        
-        if(ret == l_False) {
-            cout << "s UNSATISFIABLE" << endl;
-            return l_False;
-        }
-        
-        assert(ret == l_True);
-        
-        do{
-            lastSoftLiteral = FLAGS_maxsat_reitereted_disjoint_cores ? nVars() : INT_MAX;
-            ret = solve_();
-            assert(ret == l_True);
-        }while(lastSoftLiteral < nVars());
-        cout << "s OPTIMUM FOUND" << endl;
-        copyModel();
-        printModel();
-        return l_True;
+    int iteration = 1;
+
+    trace(maxsat, 1, "Iteration " << iteration);
+    lbool ret = solve_();
+    trace(maxsat, 1, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
+    
+    if(ret == l_False) {
+        cout << "s UNSATISFIABLE" << endl;
+        return l_False;
     }
+    
+    assert(ret == l_True);
+    
+    while(lastSoftLiteral < nVars()) {
+        iteration++;
+        lastSoftLiteral = disjcores == ALL ? nVars() : INT_MAX;
+        trace(maxsat, 1, "Iteration " << iteration);
+        ret = solve_();
+        trace(maxsat, 1, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
+        assert(ret == l_True);
+    }
+    
+    cout << "s OPTIMUM FOUND" << endl;
+    copyModel();
+    printModel();
+    return l_True;
 }
 
 lbool MaxSatSolver::solve_() {
