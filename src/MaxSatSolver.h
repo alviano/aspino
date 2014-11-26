@@ -46,13 +46,14 @@ private:
     vec<Lit> softLiterals;
     vec<long> weights;
     int lastSoftLiteral;
+    long firstLimit;
     
     void sameSoftVar(Lit soft, long weight);
     
     void sort();
     void detectLevels();
     long setAssumptions(long limit);
-    lbool solve_(long limit);
+    lbool solve_();
     
     void (MaxSatSolver::*corestrat)(long);
     void corestrat_one(long limit);

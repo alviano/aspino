@@ -195,11 +195,12 @@ long MaxSatSolver::setAssumptions(long limit) {
 lbool MaxSatSolver::solve() {
 //    sort();
     lastSoftLiteral = nVars();
-
+    firstLimit = LONG_MAX;
+    
     lbool ret = l_False;
     for(;;) {
         trace(maxsat, 1, "Preprocessing: determining disjoint unsatisfiable cores...");
-        ret = solve_(LONG_MAX);
+        ret = solve_();
         trace(maxsat, 1, "Bounds after preprocessing: [" << lowerbound << ":" << upperbound << "]");
         
         if(ret == l_False) {
@@ -211,9 +212,7 @@ lbool MaxSatSolver::solve() {
         
         do{
             lastSoftLiteral = FLAGS_maxsat_reitereted_disjoint_cores ? nVars() : INT_MAX;
-            long limit = 0;
-            for(int i = 0; i < softLiterals.size(); i++) if(weights[var(softLiterals[i])] > limit) limit = weights[var(softLiterals[i])];
-            ret = solve_(limit);
+            ret = solve_();
             assert(ret == l_True);
         }while(lastSoftLiteral < nVars());
         cout << "s OPTIMUM FOUND" << endl;
@@ -223,8 +222,10 @@ lbool MaxSatSolver::solve() {
     }
 }
 
-lbool MaxSatSolver::solve_(long limit) {
+lbool MaxSatSolver::solve_() {
+    long limit = firstLimit;
     long nextLimit;
+    bool foundCore = false;
     
     for(;;) {
         //aspino::shuffle(softLiterals);
@@ -239,6 +240,7 @@ lbool MaxSatSolver::solve_(long limit) {
             
             trace(maxsat, 4, "SAT! Decrease limit to " << nextLimit);
             limit = nextLimit;
+            if(!foundCore) firstLimit = limit;
 
             long newupperbound = lowerbound;
             for(int i = 0; i < softLiterals.size(); i++) {
@@ -252,6 +254,8 @@ lbool MaxSatSolver::solve_(long limit) {
 
             continue;
         }
+        
+        foundCore = true;
         
         trace(maxsat, 2, "UNSAT! Conflict of size " << conflict.size());
         trace(maxsat, 10, "Conflict: " << conflict);
