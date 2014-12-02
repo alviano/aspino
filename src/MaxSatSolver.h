@@ -22,6 +22,7 @@
 
 DECLARE_string(maxsat_strat);
 DECLARE_string(maxsat_disjcores);
+DECLARE_bool(maxsat_saturate);
 
 namespace aspino {
 
@@ -43,17 +44,24 @@ public:
 private:
     long upperbound;
     long lowerbound;
+    
     vec<Lit> softLiterals;
     vec<long> weights;
+    
+//    vec<int> levels;
+//    int currentLevel;
+    
     int lastSoftLiteral;
     long firstLimit;
     
     void sameSoftVar(Lit soft, long weight);
     
-    void sort();
-    void detectLevels();
+//    void sort();
+//    void detectLevels();
     long setAssumptions(long limit);
     lbool solve_();
+    
+    void trim();
     
     void (MaxSatSolver::*corestrat)(long);
     void corestrat_one(long limit);
@@ -63,6 +71,8 @@ private:
 
     enum DisjunctCores {NO = 0, PRE, ALL};
     DisjunctCores disjcores;
+    
+    bool saturate;
 };
 
 

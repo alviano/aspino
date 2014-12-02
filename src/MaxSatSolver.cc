@@ -39,6 +39,8 @@ bool validate_maxsat_disjcores(const char* name, const string& value) {
 }
 DEFINE_string(maxsat_disjcores, "pre", "Set disjunct unsatisfiable cores policy. Valid values: no, pre, all.");
 
+DEFINE_bool(maxsat_saturate, false, "Eliminate all cores of weight W before considering any core of level smaller than W.");
+
 namespace aspino {
 
 template<class B>
@@ -66,6 +68,8 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     else if(FLAGS_maxsat_disjcores == "pre") disjcores = PRE;
     else if(FLAGS_maxsat_disjcores == "all") disjcores = ALL;
     else assert(0);
+    
+    saturate = FLAGS_maxsat_saturate;
 }
 
 MaxSatSolver::~MaxSatSolver() {
@@ -206,6 +210,8 @@ long MaxSatSolver::setAssumptions(long limit) {
 
 lbool MaxSatSolver::solve() {
 //    sort();
+//    detectLevels();
+    
     lastSoftLiteral = disjcores == NO ? INT_MAX : nVars();
     firstLimit = LONG_MAX;
     
@@ -251,6 +257,12 @@ lbool MaxSatSolver::solve_() {
         PseudoBooleanSolver::solve();
         
         if(status == l_True) {
+            if(saturate && lastSoftLiteral < nVars()) {
+                lastSoftLiteral = nVars();
+                trace(maxsat, 8, "Continue on limit " << limit << " considering " << (nVars() - lastSoftLiteral) << " more literals");
+                continue;
+            }
+            
             if(nextLimit == limit) return l_True;
             
             trace(maxsat, 4, "SAT! Decrease limit to " << nextLimit);
@@ -276,22 +288,33 @@ lbool MaxSatSolver::solve_() {
         trace(maxsat, 10, "Conflict: " << conflict);
         
         if(conflict.size() == 0) return l_False;
-        cancelUntil(0);
         
-        if(conflict.size() > 1) {
-            addClause(conflict);
-            int oldSize;
-            do{
-                assumptions.clear();
-                for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
-                oldSize = conflict.size();
-                PseudoBooleanSolver::solve();
-                assert(status == l_False);
-                trace(maxsat, 4, "Trim " << oldSize - conflict.size() << " literals from conflict");
-                trace(maxsat, 10, "Conflict: " << conflict);
-                cancelUntil(0);
-            }while(oldSize > conflict.size() && conflict.size() > 1);
-        }
+        trim();
+        
+        trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << limit);
+        lowerbound += limit;
+        cout << "o " << lowerbound << endl;
+        (this->*corestrat)(limit);
+    }
+}
+
+void MaxSatSolver::trim() {
+    cancelUntil(0);
+    
+    if(conflict.size() > 1) {
+        addClause(conflict);
+        int oldSize;
+        do{
+            assumptions.clear();
+            for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
+            oldSize = conflict.size();
+            PseudoBooleanSolver::solve();
+            assert(status == l_False);
+            trace(maxsat, 4, "Trim " << oldSize - conflict.size() << " literals from conflict");
+            trace(maxsat, 10, "Conflict: " << conflict);
+            cancelUntil(0);
+        }while(oldSize > conflict.size() && conflict.size() > 1);
+    }
         
 //        if(conflict.size() > 1) {
 //            vec<Lit> copy;
@@ -318,12 +341,6 @@ lbool MaxSatSolver::solve_() {
 //                if(conflict.size() == 1) break;
 //            }while(true);//}while(copy.size() > conflict.size());
 //        }
-        
-        trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << limit);
-        lowerbound += limit;
-        cout << "o " << lowerbound << endl;
-        (this->*corestrat)(limit);
-    }
 }
 
 void MaxSatSolver::corestrat_one(long limit) {
@@ -472,23 +489,23 @@ void MaxSatSolver::corestrat_pmreslog(long limit) {
     weights[var(conflict[0])] -= limit;
 }
 
-void MaxSatSolver::sort() {
-    int n = softLiterals.size();
-    while(n > 0) {
-        int newn = 0;
-        for(int i = 1; i < n; i++) {
-            Lit lprec = softLiterals[i-1];
-            Lit lcurr = softLiterals[i];
-            if(weights[var(lprec)] < weights[var(lcurr)]) {
-                softLiterals[i-1] = lcurr;
-                softLiterals[i] = lprec;
-                newn = i;
-            }
-        }
-        n = newn;
-    }
-}
-
+//void MaxSatSolver::sort() {
+//    int n = softLiterals.size();
+//    while(n > 0) {
+//        int newn = 0;
+//        for(int i = 1; i < n; i++) {
+//            Lit lprec = softLiterals[i-1];
+//            Lit lcurr = softLiterals[i];
+//            if(weights[var(lprec)] < weights[var(lcurr)]) {
+//                softLiterals[i-1] = lcurr;
+//                softLiterals[i] = lprec;
+//                newn = i;
+//            }
+//        }
+//        n = newn;
+//    }
+//}
+//
 //void MaxSatSolver::detectLevels() {
 //    levels.growTo(weights.size(), 0);
 //    if(softLiterals.size() == 0) return;
@@ -502,6 +519,8 @@ void MaxSatSolver::sort() {
 //        levels[var(lit)] = currentLevel;
 //        cumulative += w;
 //    }
+//    
+//    cout << levels << endl;
 //}
 
 } // namespace aspino
