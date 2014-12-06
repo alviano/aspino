@@ -243,6 +243,7 @@ lbool MaxSatSolver::solve() {
 }
 
 lbool MaxSatSolver::solveCurrentLevel() {
+    trace(maxsat, 1, "Solve level " << levels.size());
     levels.last()->moveTo(softLiterals);
     delete levels.last();
     levels.pop();
@@ -252,9 +253,9 @@ lbool MaxSatSolver::solveCurrentLevel() {
     
     int iteration = 1;
 
-    trace(maxsat, 1, "Iteration " << iteration);
+    trace(maxsat, 2, "Iteration " << iteration);
     lbool ret = solve_();
-    trace(maxsat, 1, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
+    trace(maxsat, 2, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
     
     if(ret == l_False) return l_False;
     assert(ret == l_True);
@@ -262,9 +263,9 @@ lbool MaxSatSolver::solveCurrentLevel() {
     while(lastSoftLiteral < nVars()) {
         iteration++;
         lastSoftLiteral = disjcores == ALL ? nVars() : INT_MAX;
-        trace(maxsat, 1, "Iteration " << iteration);
+        trace(maxsat, 2, "Iteration " << iteration);
         ret = solve_();
-        trace(maxsat, 1, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
+        trace(maxsat, 2, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
         assert(ret == l_True);
     }
 
