@@ -48,18 +48,19 @@ private:
     vec<Lit> softLiterals;
     vec<long> weights;
     
-//    vec<int> levels;
-//    int currentLevel;
+    vec<vec<Lit>*> levels;
     
     int lastSoftLiteral;
     long firstLimit;
     
     void sameSoftVar(Lit soft, long weight);
     
-//    void sort();
-//    void detectLevels();
+    void detectLevels();
     long setAssumptions(long limit);
+    lbool solveCurrentLevel();
     lbool solve_();
+    
+    void updateUpperBound();
     
     void trim();
     

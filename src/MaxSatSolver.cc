@@ -17,8 +17,12 @@
 
 #include "MaxSatSolver.h"
 
-#include "core/Dimacs.h"
+#include <mtl/Map.h>
+#include <core/Dimacs.h>
+
 #include "utils/algorithm.h"
+
+using Glucose::Map;
 
 bool validate_maxsat_strat(const char* name, const string& value) {
     if(value == "one") return true;
@@ -95,7 +99,6 @@ void MaxSatSolver::sameSoftVar(Lit soft, long weight) {
             if(softLiterals[i] == ~soft) continue;
             softLiterals[j++] = softLiterals[i];
         }
-        cout << j+1 << " " << softLiterals.size() << endl;
         assert(softLiterals.size() == j+1);
         softLiterals.shrink_(1);
     }else if(weights[var(soft)] < weight) {
@@ -210,7 +213,39 @@ long MaxSatSolver::setAssumptions(long limit) {
 
 lbool MaxSatSolver::solve() {
 //    sort();
-//    detectLevels();
+    detectLevels();
+
+    assert(levels.size() > 0);
+
+    while(lowerbound < upperbound) {
+        assert(levels.size() > 0);
+        lbool ret = solveCurrentLevel();
+        if(ret == l_False) {
+            cout << "s UNSATISFIABLE" << endl;
+            return l_False;
+        }
+        assert(ret == l_True);
+        
+        for(int i = 0; i < softLiterals.size(); i++) {
+            assert(weights[var(softLiterals[i])] + lowerbound > upperbound);
+            addClause(softLiterals[i]);
+            trace(maxsat, 10, "Hardening of " << softLiterals[i] << " of weight " << weights[var(softLiterals[i])]);
+            weights[var(softLiterals[i])] = 0;
+        }
+    }
+    
+    while(levels.size() > 0) { delete levels.last(); levels.pop(); }
+    
+    cout << "s OPTIMUM FOUND" << endl;
+    copyModel();
+    printModel();
+    return l_True;
+}
+
+lbool MaxSatSolver::solveCurrentLevel() {
+    levels.last()->moveTo(softLiterals);
+    delete levels.last();
+    levels.pop();
     
     lastSoftLiteral = disjcores == NO ? INT_MAX : nVars();
     firstLimit = LONG_MAX;
@@ -221,11 +256,7 @@ lbool MaxSatSolver::solve() {
     lbool ret = solve_();
     trace(maxsat, 1, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
     
-    if(ret == l_False) {
-        cout << "s UNSATISFIABLE" << endl;
-        return l_False;
-    }
-    
+    if(ret == l_False) return l_False;
     assert(ret == l_True);
     
     while(lastSoftLiteral < nVars()) {
@@ -236,10 +267,7 @@ lbool MaxSatSolver::solve() {
         trace(maxsat, 1, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
         assert(ret == l_True);
     }
-    
-    cout << "s OPTIMUM FOUND" << endl;
-    copyModel();
-    printModel();
+
     return l_True;
 }
 
@@ -263,21 +291,16 @@ lbool MaxSatSolver::solve_() {
                 continue;
             }
             
-            if(nextLimit == limit) return l_True;
+            if(nextLimit == limit) {
+                updateUpperBound();
+                return l_True;
+            }
             
             trace(maxsat, 4, "SAT! Decrease limit to " << nextLimit);
             limit = nextLimit;
             if(!foundCore) firstLimit = limit;
 
-            long newupperbound = lowerbound;
-            for(int i = 0; i < softLiterals.size(); i++) {
-                if(value(softLiterals[i]) == l_False) newupperbound += weights[var(softLiterals[i])];
-            }
-            if(newupperbound < upperbound) {
-                upperbound = newupperbound;
-                cout << "c ub " << upperbound << endl;
-                cancelUntil(0);
-            }
+            updateUpperBound();
 
             continue;
         }
@@ -295,6 +318,19 @@ lbool MaxSatSolver::solve_() {
         lowerbound += limit;
         cout << "o " << lowerbound << endl;
         (this->*corestrat)(limit);
+    }
+}
+
+void MaxSatSolver::updateUpperBound() {
+    long newupperbound = lowerbound;
+    for(int i = 0; i < levels.size(); i++) newupperbound += levels[i]->size() * weights[var(levels[i]->last())];
+    for(int i = 0; i < softLiterals.size(); i++) {
+        if(value(softLiterals[i]) == l_False) newupperbound += weights[var(softLiterals[i])];
+    }
+    if(newupperbound < upperbound) {
+        upperbound = newupperbound;
+        cout << "c ub " << upperbound << endl;
+        cancelUntil(0); // new hardening are possible
     }
 }
 
@@ -489,38 +525,41 @@ void MaxSatSolver::corestrat_pmreslog(long limit) {
     weights[var(conflict[0])] -= limit;
 }
 
-//void MaxSatSolver::sort() {
-//    int n = softLiterals.size();
-//    while(n > 0) {
-//        int newn = 0;
-//        for(int i = 1; i < n; i++) {
-//            Lit lprec = softLiterals[i-1];
-//            Lit lcurr = softLiterals[i];
-//            if(weights[var(lprec)] < weights[var(lcurr)]) {
-//                softLiterals[i-1] = lcurr;
-//                softLiterals[i] = lprec;
-//                newn = i;
-//            }
-//        }
-//        n = newn;
-//    }
-//}
-//
-//void MaxSatSolver::detectLevels() {
-//    levels.growTo(weights.size(), 0);
-//    if(softLiterals.size() == 0) return;
-//
-//    currentLevel = 0;
-//    long cumulative = 0;
-//    for(int i = softLiterals.size() - 1; i >= 0; i--) {
-//        Lit lit = softLiterals[i];
-//        long w = weights[var(lit)];
-//        if(w > cumulative) currentLevel++;
-//        levels[var(lit)] = currentLevel;
-//        cumulative += w;
-//    }
-//    
-//    cout << levels << endl;
-//}
+void MaxSatSolver::detectLevels() {
+    vec<long> allWeights;
+    Map<long, vec<Lit>*> wMap;
+    for(int i = 0; i < softLiterals.size(); i++) {
+        Lit lit = softLiterals[i];
+        long w = weights[var(lit)];
+        if(!wMap.has(w)) { wMap.insert(w, new vec<Lit>()); allWeights.push(w); }
+        wMap[w]->push(lit);
+    }
+    
+    int n = allWeights.size();
+    while(n > 0) {
+        int newn = 0;
+        for(int i = 1; i < n; i++) {
+            if(allWeights[i-1] > allWeights[i]) {
+                long tmp = allWeights[i-1];
+                allWeights[i-1] = allWeights[i];
+                allWeights[i] = tmp;
+                newn = i;
+            }
+        }
+        n = newn;
+    }
+    
+    assert(levels.size() == 0);
+    
+    long cumulative = 0;
+    for(int i = 0; i < allWeights.size(); i++) {
+        long w = allWeights[i];
+        if(w > cumulative) levels.push(new vec<Lit>());
+        vec<Lit>& v = *wMap[w];
+        for(int j = 0; j < v.size(); j++) levels.last()->push(v[j]);
+        cumulative += w * v.size();
+        delete wMap[w];
+    }
+}
 
 } // namespace aspino
