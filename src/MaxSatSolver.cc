@@ -561,6 +561,8 @@ void MaxSatSolver::detectLevels() {
         cumulative += w * v.size();
         delete wMap[w];
     }
+    
+    trace(maxsat, 1, "Detected " << levels.size() << " levels");
 }
 
 } // namespace aspino
