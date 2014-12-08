@@ -212,7 +212,6 @@ long MaxSatSolver::setAssumptions(long limit) {
 }
 
 lbool MaxSatSolver::solve() {
-//    sort();
     detectLevels();
 
     assert(levels.size() > 0);
