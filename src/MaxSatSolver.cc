@@ -189,6 +189,7 @@ void MaxSatSolver::parse(gzFile in_) {
 
 long MaxSatSolver::setAssumptions(long limit) {
     assumptions.clear();
+    cancelUntil(0);
     long next = limit;
     int j = 0;
     for(int i = 0; i < softLiterals.size(); i++) {
@@ -216,7 +217,7 @@ lbool MaxSatSolver::solve() {
 
     assert(levels.size() > 0);
 
-    while(lowerbound < upperbound) {
+    for(;;) {
         assert(levels.size() > 0);
         lbool ret = solveCurrentLevel();
         if(ret == l_False) {
@@ -225,6 +226,9 @@ lbool MaxSatSolver::solve() {
         }
         assert(ret == l_True);
         
+        if(lowerbound == upperbound) break;
+        
+        cancelUntil(0);
         for(int i = 0; i < softLiterals.size(); i++) {
             assert(weights[var(softLiterals[i])] + lowerbound > upperbound);
             addClause(softLiterals[i]);
@@ -330,7 +334,6 @@ void MaxSatSolver::updateUpperBound() {
     if(newupperbound < upperbound) {
         upperbound = newupperbound;
         cout << "c ub " << upperbound << endl;
-        cancelUntil(0); // new hardening are possible
     }
 }
 
