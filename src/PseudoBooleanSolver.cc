@@ -392,9 +392,7 @@ void PseudoBooleanSolver::onCancel() {
     while(moreReasonClauses.size() > 0) {
         CRef cr = moreReasonClauses.last();
         moreReasonClauses.pop();
-        Clause& c = ca[cr];
-        assert(!locked(c)); // vardata[var(c[0])].reason = CRef_Undef;
-//        c.mark(1);
+        assert(!locked(ca[cr]));
         ca.free(cr);
     }
 }
