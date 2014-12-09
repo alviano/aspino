@@ -310,13 +310,13 @@ CRef PseudoBooleanSolver::checkConflict(Lit lit, WeightConstraint& wc, int pos) 
         attachClause(cr);
         return cr;
     }
-    trace(pbs, 10, "Adding literal " << wc.lits[pos] << " to the trail of " << wc << ": loosable was " << wc.loosable << " and now is " << wc.loosable - wc.coeffs[pos]);
-    wc.trail.push(pos);
-    wc.loosable -= wc.coeffs[pos];
     return CRef_Undef;
 }
 
 CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc) {
+    trace(pbs, 10, "Adding literal " << wc.lits[pos] << " to the trail of " << wc << ": loosable was " << wc.loosable << " and now is " << wc.loosable - wc.coeffs[pos]);
+    wc.trail.push(pos);
+    wc.loosable -= wc.coeffs[pos];
     for(int j = wc.first; j >= 0; j--) {
         if(wc.coeffs[j] <= wc.loosable) break;
         Lit wlit = wc.lits[j];
