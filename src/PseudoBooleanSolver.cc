@@ -250,88 +250,109 @@ void PseudoBooleanSolver::attach(WeightConstraint& wc) {
 CRef PseudoBooleanSolver::morePropagate() {
     while(nextToPropagate < nextToPropagateByUnit()) {
         Lit lit = mainTrail(nextToPropagate++);
-        trace(pbs, 20, "Propagating " << lit << "@" << level(var(lit)));
-        vec<WeightConstraint*>& p = propagators[sign(lit)][var(lit)];
-        vec<int>& ppos = positions[sign(lit)][var(lit)];
-        
-        for(int i = 0; i < p.size(); i++) {
-            WeightConstraint& wc = *p[i];
-            int pos = ppos[i];
-
-            trace(pbs, 6, "Processing " << wc);
-            
-            trace(pbs, 10, "Restoring status of " << wc << " (first: " << wc.first << "; loosable: " << wc.loosable << "; trail: " << wc.trail << ")");
-            for(;;) {
-                if(wc.trail.size() == 0) break;
-                int idx = wc.trail.last();
-                if(propagated[var(wc.lits[idx])] && value(wc.lits[idx]) == l_False) break;
-                trace(pbs, 15, "Removing literal " << wc.lits[wc.trail.last()] << " from the trail: loosable was " << wc.loosable << " and now is " << wc.loosable + wc.coeffs[idx]);
-                wc.trail.pop();
-                wc.loosable += wc.coeffs[idx];
-                if(wc.first < idx) {
-                    trace(pbs, 17, "First was " << wc.first << " and now is " << idx);
-                    wc.first = idx;
-                }
-            }
-            
-            if(wc.loosable < wc.coeffs[pos]) {
-                trace(pbs, 4, "Conflict on " << wc);
-                vec<Lit> clause;
-                clause.push(~lit);
-                for(int k = wc.trail.size() - 1; k >= 0; k--) {
-                    Lit l = wc.lits[wc.trail[k]];
-                    clause.push(l);
-                }
-                trace(pbs, 4, "Model conflict with clause " << clause);
-                assert(clause.size() > 1);
-                CRef cr = ca.alloc(clause, true);
-                learnts.push(cr);
-                attachClause(cr);
-                return cr;
-            }
-            trace(pbs, 10, "Adding literal " << wc.lits[pos] << " to the trail of " << wc << ": loosable was " << wc.loosable << " and now is " << wc.loosable - wc.coeffs[pos]);
-            wc.trail.push(pos);
-            wc.loosable -= wc.coeffs[pos];
-            
-            for(int j = wc.first; j >= 0; j--) {
-                if(wc.coeffs[j] <= wc.loosable) break;
-                Lit wlit = wc.lits[j];
-                if(value(wlit) == l_True) continue;
-                if(value(wlit) == l_Undef) {
-                    trace(pbs, 2, "Inferring " << wlit << " from " << wc);
-                    vec<Lit> clause;
-                    clause.push(wlit);
-                    for(int k = wc.trail.size() - 1; k >= 0; k--) clause.push(wc.lits[wc.trail[k]]);
-                    trace(pbs, 4, "Setting reason of " << wlit << " to clause " << clause);
-                    CRef cr = ca.alloc(clause, true);
-                    learnts.push(cr);
-                    attachClause(cr);
-                    uncheckedEnqueue(clause[0], cr);
-                }
-                else if(wlit != ~lit && !propagated[var(wlit)]) {
-                    trace(pbs, 4, "Conflict on literal " << wlit << " in " << wc);
-                    vec<Lit> clause;
-                    clause.push(wlit);
-                    for(int k = wc.trail.size() - 1; k >= 0; k--) {
-                        Lit l = wc.lits[wc.trail[k]];
-                        clause.push(l);
-                    }
-                    trace(pbs, 4, "Model conflict with clause " << clause);
-                    assert(clause.size() > 1);
-                    CRef cr = ca.alloc(clause, true);
-                    learnts.push(cr);
-                    attachClause(cr);
-                    return cr;
-                }
-            }
-            while(value(wc.lits[wc.first]) == l_False) if(--wc.first < 0) break;
-        }
-            
-        propagated[var(lit)] = true;
+        CRef ret = morePropagate(lit);
+        if(ret != CRef_Undef) return ret;
     }
         
     return CRef_Undef;
 }
+
+CRef PseudoBooleanSolver::morePropagate(Lit lit) {
+    trace(pbs, 20, "Propagating " << lit << "@" << level(var(lit)));
+    vec<WeightConstraint*>& p = propagators[sign(lit)][var(lit)];
+    vec<int>& ppos = positions[sign(lit)][var(lit)];
+    
+    for(int i = 0; i < p.size(); i++) {
+        WeightConstraint& wc = *p[i];
+        int pos = ppos[i];
+
+        trace(pbs, 6, "Processing " << wc);
+        restore(wc);
+        CRef ret = checkConflict(lit, wc, pos);
+        if(ret != CRef_Undef) return ret;
+        ret = checkInference(lit, wc);
+        if(ret != CRef_Undef) return ret;
+    }
+        
+    propagated[var(lit)] = true;
+    return CRef_Undef;
+}
+
+void PseudoBooleanSolver::restore(WeightConstraint& wc) {
+    trace(pbs, 10, "Restoring status of " << wc << " (first: " << wc.first << "; loosable: " << wc.loosable << "; trail: " << wc.trail << ")");
+    for(;;) {
+        if(wc.trail.size() == 0) break;
+        int idx = wc.trail.last();
+        if(propagated[var(wc.lits[idx])] && value(wc.lits[idx]) == l_False) break;
+        trace(pbs, 15, "Removing literal " << wc.lits[wc.trail.last()] << " from the trail: loosable was " << wc.loosable << " and now is " << wc.loosable + wc.coeffs[idx]);
+        wc.trail.pop();
+        wc.loosable += wc.coeffs[idx];
+        if(wc.first < idx) {
+            trace(pbs, 17, "First was " << wc.first << " and now is " << idx);
+            wc.first = idx;
+        }
+    }
+}
+
+CRef PseudoBooleanSolver::checkConflict(Lit lit, WeightConstraint& wc, int pos) {
+    if(wc.loosable < wc.coeffs[pos]) {
+        trace(pbs, 4, "Conflict on " << wc);
+        vec<Lit> clause;
+        clause.push(~lit);
+        for(int k = wc.trail.size() - 1; k >= 0; k--) {
+            Lit l = wc.lits[wc.trail[k]];
+            clause.push(l);
+        }
+        trace(pbs, 4, "Model conflict with clause " << clause);
+        assert(clause.size() > 1);
+        CRef cr = ca.alloc(clause, true);
+        learnts.push(cr);
+        attachClause(cr);
+        return cr;
+    }
+    trace(pbs, 10, "Adding literal " << wc.lits[pos] << " to the trail of " << wc << ": loosable was " << wc.loosable << " and now is " << wc.loosable - wc.coeffs[pos]);
+    wc.trail.push(pos);
+    wc.loosable -= wc.coeffs[pos];
+    return CRef_Undef;
+}
+
+CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc) {
+    for(int j = wc.first; j >= 0; j--) {
+        if(wc.coeffs[j] <= wc.loosable) break;
+        Lit wlit = wc.lits[j];
+        if(value(wlit) == l_True) continue;
+        if(value(wlit) == l_Undef) {
+            trace(pbs, 2, "Inferring " << wlit << " from " << wc);
+            vec<Lit> clause;
+            clause.push(wlit);
+            for(int k = wc.trail.size() - 1; k >= 0; k--) clause.push(wc.lits[wc.trail[k]]);
+            trace(pbs, 4, "Setting reason of " << wlit << " to clause " << clause);
+            CRef cr = ca.alloc(clause, true);
+            learnts.push(cr);
+            attachClause(cr);
+            uncheckedEnqueue(clause[0], cr);
+        }
+        else if(wlit != ~lit && !propagated[var(wlit)]) {
+            trace(pbs, 4, "Conflict on literal " << wlit << " in " << wc);
+            vec<Lit> clause;
+            clause.push(wlit);
+            for(int k = wc.trail.size() - 1; k >= 0; k--) {
+                Lit l = wc.lits[wc.trail[k]];
+                clause.push(l);
+            }
+            trace(pbs, 4, "Model conflict with clause " << clause);
+            assert(clause.size() > 1);
+            CRef cr = ca.alloc(clause, true);
+            learnts.push(cr);
+            attachClause(cr);
+            return cr;
+        }
+    }
+    while(value(wc.lits[wc.first]) == l_False) if(--wc.first < 0) break;
+    
+    return CRef_Undef;
+}
+
 
 void PseudoBooleanSolver::newVar() {
     SatSolver::newVar();

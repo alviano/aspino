@@ -61,6 +61,11 @@ public:
     
 protected:
     virtual CRef morePropagate();
+    CRef morePropagate(Lit lit);
+    void restore(WeightConstraint& wc);
+    CRef checkConflict(Lit lit, WeightConstraint& wc, int pos);
+    CRef checkInference(Lit lit, WeightConstraint& wc);
+    
     virtual void onCancel();
     
     vec<WeightConstraint*> wconstraints;
