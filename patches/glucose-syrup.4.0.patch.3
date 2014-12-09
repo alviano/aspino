@@ -1,0 +1,22 @@
+diff -rupN glucose-syrup.patch.2/core/Solver.cc glucose-syrup.patch.3/core/Solver.cc
+--- glucose-syrup.patch.2/core/Solver.cc	2014-12-08 18:23:05.065470770 +0100
++++ glucose-syrup.patch.3/core/Solver.cc	2014-12-09 18:40:42.572463910 +0100
+@@ -728,6 +728,7 @@ void Solver::analyze(CRef confl, vec<Lit
+         // Select next clause to look at:
+         while (!seen[var(trail[index--])]);
+         p = trail[index + 1];
++        moreReason(p);
+         confl = reason(var(p));
+         seen[var(p)] = 0;
+         pathC--;
+diff -rupN glucose-syrup.patch.2/core/Solver.h glucose-syrup.patch.3/core/Solver.h
+--- glucose-syrup.patch.2/core/Solver.h	2014-12-08 18:23:05.065470770 +0100
++++ glucose-syrup.patch.3/core/Solver.h	2014-12-09 18:40:42.572463910 +0100
+@@ -393,6 +393,7 @@ protected:
+     //
+     int      decisionLevel    ()      const; // Gives the current decisionlevel.
+     uint32_t abstractLevel    (Var x) const; // Used to represent an abstraction of sets of decision levels.
++    virtual inline void moreReason(Lit) {}   // Used by propagators
+     CRef     reason           (Var x) const;
+     int      level            (Var x) const;
+     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
