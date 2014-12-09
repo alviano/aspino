@@ -215,8 +215,6 @@ long MaxSatSolver::setAssumptions(long limit) {
 lbool MaxSatSolver::solve() {
     detectLevels();
 
-    assert(levels.size() > 0);
-
     for(;;) {
         assert(levels.size() > 0);
         lbool ret = solveCurrentLevel();
@@ -239,6 +237,7 @@ lbool MaxSatSolver::solve() {
     
     while(levels.size() > 0) { delete levels.last(); levels.pop(); }
     
+    cout << "o " << lowerbound << endl;
     cout << "s OPTIMUM FOUND" << endl;
     copyModel();
     printModel();
@@ -565,6 +564,10 @@ void MaxSatSolver::detectLevels() {
     }
     
     trace(maxsat, 1, "Detected " << levels.size() << " levels");
+    if(levels.size() == 0) {
+        trace(maxsat, 2, "Add fake, empty level");
+        levels.push(new vec<Lit>());
+    }
 }
 
 } // namespace aspino
