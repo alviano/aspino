@@ -270,7 +270,7 @@ CRef PseudoBooleanSolver::morePropagate(Lit lit) {
         restore(wc);
         CRef ret = checkConflict(lit, wc, pos);
         if(ret != CRef_Undef) return ret;
-        ret = checkInference(lit, wc);
+        ret = checkInference(lit, wc, pos);
         if(ret != CRef_Undef) return ret;
     }
         
@@ -306,14 +306,13 @@ CRef PseudoBooleanSolver::checkConflict(Lit lit, WeightConstraint& wc, int pos) 
         trace(pbs, 4, "Model conflict with clause " << clause);
         assert(clause.size() > 1);
         CRef cr = ca.alloc(clause, true);
-        learnts.push(cr);
-        attachClause(cr);
+        moreReasonClauses.push(cr);
         return cr;
     }
     return CRef_Undef;
 }
 
-CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc) {
+CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos) {
     trace(pbs, 10, "Adding literal " << wc.lits[pos] << " to the trail of " << wc << ": loosable was " << wc.loosable << " and now is " << wc.loosable - wc.coeffs[pos]);
     wc.trail.push(pos);
     wc.loosable -= wc.coeffs[pos];
@@ -322,15 +321,10 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc) {
         Lit wlit = wc.lits[j];
         if(value(wlit) == l_True) continue;
         if(value(wlit) == l_Undef) {
-            trace(pbs, 2, "Inferring " << wlit << " from " << wc);
-            vec<Lit> clause;
-            clause.push(wlit);
-            for(int k = wc.trail.size() - 1; k >= 0; k--) clause.push(wc.lits[wc.trail[k]]);
-            trace(pbs, 4, "Setting reason of " << wlit << " to clause " << clause);
-            CRef cr = ca.alloc(clause, true);
-            learnts.push(cr);
-            attachClause(cr);
-            uncheckedEnqueue(clause[0], cr);
+            trace(pbs, 2, "Inferring " << wlit << "@" << decisionLevel() << " from " << wc);
+            moreReason_[var(wlit)] = &wc;
+            moreReasonVars.push(var(wlit));
+            uncheckedEnqueue(wlit, CRef_Undef);
         }
         else if(wlit != ~lit && !propagated[var(wlit)]) {
             trace(pbs, 4, "Conflict on literal " << wlit << " in " << wc);
@@ -343,8 +337,7 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc) {
             trace(pbs, 4, "Model conflict with clause " << clause);
             assert(clause.size() > 1);
             CRef cr = ca.alloc(clause, true);
-            learnts.push(cr);
-            attachClause(cr);
+            moreReasonClauses.push(cr);
             return cr;
         }
     }
@@ -353,6 +346,23 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc) {
     return CRef_Undef;
 }
 
+void PseudoBooleanSolver::moreReason(Lit lit) {
+    if(moreReason_[var(lit)] == NULL) return;
+    WeightConstraint& wc = *moreReason_[var(lit)];
+    vec<Lit> clause;
+    clause.push(lit);
+    int lvl = level(var(lit));
+    for(int k = 0; k < wc.trail.size(); k++) {
+        Lit l = wc.lits[wc.trail[k]];
+        if(level(var(l)) > lvl) break;
+        if(level(var(l)) == 0) continue;
+        clause.push(l);
+    }
+    trace(pbs, 4, "Setting reason of " << lit << " to clause " << clause);
+    CRef cr = ca.alloc(clause, true);
+    moreReasonClauses.push(cr);
+    vardata[var(lit)].reason = cr;
+}
 
 void PseudoBooleanSolver::newVar() {
     SatSolver::newVar();
@@ -360,15 +370,39 @@ void PseudoBooleanSolver::newVar() {
     propagators[1].push();
     positions[0].push();
     positions[1].push();
+    moreReason_.push(NULL);
     propagated.push(false);
 }
 
 void PseudoBooleanSolver::onCancel() {
     trace(pbs, 2, "Cancel until level " << decisionLevel());
+    
     while(nextToPropagate > nextToPropagateByUnit()) { 
         int v = var(mainTrail(--nextToPropagate));
         propagated[v] = false;
     }
+    
+    while(moreReasonVars.size() > 0) {
+        Var v = moreReasonVars.last();
+        if(level(v) <= decisionLevel()) break;
+        moreReasonVars.pop();
+        moreReason_[v] = NULL;
+    }
+    
+    while(moreReasonClauses.size() > 0) {
+        CRef cr = moreReasonClauses.last();
+        moreReasonClauses.pop();
+        Clause& c = ca[cr];
+        assert(!locked(c)); // vardata[var(c[0])].reason = CRef_Undef;
+//        c.mark(1);
+        ca.free(cr);
+    }
+}
+
+void PseudoBooleanSolver::relocAll(ClauseAllocator& to) {
+    SatSolver::relocAll(to);
+    for (int i = 0; i < moreReasonClauses.size(); i++)
+        ca.reloc(moreReasonClauses[i], to);
 }
 
 int PseudoBooleanSolver::gcd(int a, int b) {

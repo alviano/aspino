@@ -44,6 +44,7 @@ bool validate_maxsat_disjcores(const char* name, const string& value) {
 DEFINE_string(maxsat_disjcores, "pre", "Set disjunct unsatisfiable cores policy. Valid values: no, pre, all.");
 
 DEFINE_bool(maxsat_saturate, false, "Eliminate all cores of weight W before considering any core of level smaller than W.");
+DEFINE_bool(maxsat_printmodel, true, "Print optimal model if found.");
 
 namespace aspino {
 
@@ -213,6 +214,7 @@ long MaxSatSolver::setAssumptions(long limit) {
 }
 
 lbool MaxSatSolver::solve() {
+    cout << "o " << lowerbound << endl;
     detectLevels();
 
     for(;;) {
@@ -237,10 +239,9 @@ lbool MaxSatSolver::solve() {
     
     while(levels.size() > 0) { delete levels.last(); levels.pop(); }
     
-    cout << "o " << lowerbound << endl;
     cout << "s OPTIMUM FOUND" << endl;
     copyModel();
-    printModel();
+    if(FLAGS_maxsat_printmodel) printModel();
     return l_True;
 }
 

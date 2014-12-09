@@ -64,13 +64,20 @@ protected:
     CRef morePropagate(Lit lit);
     void restore(WeightConstraint& wc);
     CRef checkConflict(Lit lit, WeightConstraint& wc, int pos);
-    CRef checkInference(Lit lit, WeightConstraint& wc);
+    CRef checkInference(Lit lit, WeightConstraint& wc, int pos);
     
+    virtual void moreReason(Lit lit);
     virtual void onCancel();
+    virtual void relocAll(ClauseAllocator& to);
     
     vec<WeightConstraint*> wconstraints;
     vec< vec<WeightConstraint*> > propagators[2];
     vec< vec<int> > positions[2];
+    
+    vec<WeightConstraint*> moreReason_;
+    vec<Var> moreReasonVars;
+    vec<CRef> moreReasonClauses;
+    
     vec<bool> propagated;
     int nextToPropagate;
     
