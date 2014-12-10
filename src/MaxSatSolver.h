@@ -49,6 +49,7 @@ private:
     vec<long> weights;
     
     vec<vec<Lit>*> levels;
+    vec<long> weightOfPreviousLevel;
     
     int lastSoftLiteral;
     long firstLimit;

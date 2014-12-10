@@ -301,6 +301,7 @@ CRef PseudoBooleanSolver::checkConflict(Lit lit, WeightConstraint& wc, int pos) 
         clause.push(~lit);
         for(int k = wc.trail.size() - 1; k >= 0; k--) {
             Lit l = wc.lits[wc.trail[k]];
+            if(level(var(l)) == 0) continue;
             clause.push(l);
         }
         trace(pbs, 4, "Model conflict with clause " << clause);
@@ -321,10 +322,12 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos)
         Lit wlit = wc.lits[j];
         if(value(wlit) == l_True) continue;
         if(value(wlit) == l_Undef) {
-            trace(pbs, 2, "Inferring " << wlit << "@" << decisionLevel() << " from " << wc);
-            moreReason_[var(wlit)] = &wc;
+            trace(pbs, 20, "Inferring " << wlit << "@" << decisionLevel() << " from " << wc);
+            assert(moreReasonWC[var(wlit)] == NULL);
+            moreReasonWC[var(wlit)] = &wc;
+            moreReasonTrailSize[var(wlit)] = wc.trail.size();
             moreReasonVars.push(var(wlit));
-            uncheckedEnqueue(wlit, CRef_Undef);
+            uncheckedEnqueue(wlit);
         }
         else if(wlit != ~lit && !propagated[var(wlit)]) {
             trace(pbs, 4, "Conflict on literal " << wlit << " in " << wc);
@@ -332,8 +335,11 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos)
             clause.push(wlit);
             for(int k = wc.trail.size() - 1; k >= 0; k--) {
                 Lit l = wc.lits[wc.trail[k]];
+                assert(value(l) == l_False);
+                if(level(var(l)) == 0) continue;
                 clause.push(l);
             }
+            assert(clause.size() > 1);
             trace(pbs, 4, "Model conflict with clause " << clause);
             assert(clause.size() > 1);
             CRef cr = ca.alloc(clause, true);
@@ -346,23 +352,6 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos)
     return CRef_Undef;
 }
 
-void PseudoBooleanSolver::moreReason(Lit lit) {
-    if(moreReason_[var(lit)] == NULL) return;
-    WeightConstraint& wc = *moreReason_[var(lit)];
-    vec<Lit> clause;
-    clause.push(lit);
-    int lvl = level(var(lit));
-    for(int k = 0; k < wc.trail.size(); k++) {
-        Lit l = wc.lits[wc.trail[k]];
-        if(level(var(l)) > lvl) break;
-        if(level(var(l)) == 0) continue;
-        clause.push(l);
-    }
-    trace(pbs, 4, "Setting reason of " << lit << " to clause " << clause);
-    CRef cr = ca.alloc(clause, true);
-    moreReasonClauses.push(cr);
-    vardata[var(lit)].reason = cr;
-}
 
 void PseudoBooleanSolver::newVar() {
     SatSolver::newVar();
@@ -370,23 +359,48 @@ void PseudoBooleanSolver::newVar() {
     propagators[1].push();
     positions[0].push();
     positions[1].push();
-    moreReason_.push(NULL);
+    moreReasonWC.push(NULL);
+    moreReasonTrailSize.push();
     propagated.push(false);
+}
+
+void PseudoBooleanSolver::moreReason(Lit lit) {
+    if(moreReasonWC[var(lit)] == NULL) return;
+    assert(decisionLevel() != 0);
+    assert(reason(var(lit)) == CRef_Undef);
+    WeightConstraint& wc = *moreReasonWC[var(lit)];
+    int trailSize = moreReasonTrailSize[var(lit)];
+    assert(trailSize >= 0);
+    assert(trailSize <= wc.trail.size());
+    vec<Lit> clause;
+    clause.push(lit);
+    while(--trailSize >= 0) {
+        Lit l = wc.lits[wc.trail[trailSize]];
+        assert(value(l) == l_False);
+        assert(level(var(l)) <= level(var(lit)));
+        if(level(var(l)) == 0) continue;
+        clause.push(l);
+    }
+    assert(clause.size() > 1);
+    trace(pbs, 4, "Setting reason of " << lit << " to clause " << clause);
+    CRef cr = ca.alloc(clause, true);
+    moreReasonClauses.push(cr);
+    vardata[var(lit)].reason = cr;
 }
 
 void PseudoBooleanSolver::onCancel() {
     trace(pbs, 2, "Cancel until level " << decisionLevel());
-    
     while(nextToPropagate > nextToPropagateByUnit()) { 
         int v = var(mainTrail(--nextToPropagate));
         propagated[v] = false;
     }
-    
+
     while(moreReasonVars.size() > 0) {
         Var v = moreReasonVars.last();
         if(level(v) <= decisionLevel()) break;
         moreReasonVars.pop();
-        moreReason_[v] = NULL;
+        moreReasonWC[v] = NULL;
+        moreReasonTrailSize[v] = -1;
     }
     
     while(moreReasonClauses.size() > 0) {

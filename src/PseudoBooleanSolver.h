@@ -73,8 +73,9 @@ protected:
     vec<WeightConstraint*> wconstraints;
     vec< vec<WeightConstraint*> > propagators[2];
     vec< vec<int> > positions[2];
-    
-    vec<WeightConstraint*> moreReason_;
+
+    vec<WeightConstraint*> moreReasonWC;
+    vec<int> moreReasonTrailSize;
     vec<Var> moreReasonVars;
     vec<CRef> moreReasonClauses;
     

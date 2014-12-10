@@ -250,6 +250,7 @@ lbool MaxSatSolver::solveCurrentLevel() {
     levels.last()->moveTo(softLiterals);
     delete levels.last();
     levels.pop();
+    weightOfPreviousLevel.pop();
     
     lastSoftLiteral = disjcores == NO ? INT_MAX : nVars();
     firstLimit = LONG_MAX;
@@ -289,6 +290,8 @@ lbool MaxSatSolver::solve_() {
         PseudoBooleanSolver::solve();
         
         if(status == l_True) {
+            updateUpperBound();
+            
             if(saturate && lastSoftLiteral < nVars()) {
                 lastSoftLiteral = nVars();
                 trace(maxsat, 8, "Continue on limit " << limit << " considering " << (nVars() - lastSoftLiteral) << " more literals");
@@ -296,15 +299,13 @@ lbool MaxSatSolver::solve_() {
             }
             
             if(nextLimit == limit) {
-                updateUpperBound();
+                trace(maxsat, 4, "SAT! No other limit to try");
                 return l_True;
             }
             
             trace(maxsat, 4, "SAT! Decrease limit to " << nextLimit);
             limit = nextLimit;
             if(!foundCore) firstLimit = limit;
-
-            updateUpperBound();
 
             continue;
         }
@@ -326,8 +327,8 @@ lbool MaxSatSolver::solve_() {
 }
 
 void MaxSatSolver::updateUpperBound() {
-    long newupperbound = lowerbound;
-    for(int i = 0; i < levels.size(); i++) newupperbound += levels[i]->size() * weights[var(levels[i]->last())];
+    assert(weightOfPreviousLevel.size() > 0);
+    long newupperbound = lowerbound + weightOfPreviousLevel.last();
     for(int i = 0; i < softLiterals.size(); i++) {
         if(value(softLiterals[i]) == l_False) newupperbound += weights[var(softLiterals[i])];
     }
@@ -557,12 +558,13 @@ void MaxSatSolver::detectLevels() {
     long cumulative = 0;
     for(int i = 0; i < allWeights.size(); i++) {
         long w = allWeights[i];
-        if(w > cumulative) levels.push(new vec<Lit>());
+        if(w > cumulative) { levels.push(new vec<Lit>()); weightOfPreviousLevel.push(cumulative); }
         vec<Lit>& v = *wMap[w];
         for(int j = 0; j < v.size(); j++) levels.last()->push(v[j]);
         cumulative += w * v.size();
         delete wMap[w];
     }
+    weightOfPreviousLevel.push(cumulative);
     
     trace(maxsat, 1, "Detected " << levels.size() << " levels");
     if(levels.size() == 0) {
