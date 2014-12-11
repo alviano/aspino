@@ -13,9 +13,7 @@ fi
 
 echo "Patching glucose 4.0..."
 cd $DIRNAME/patches; rm -rf glucose-syrup; tar xf glucose-syrup.tgz; cd $OLDPATH
-cd $DIRNAME/patches/glucose-syrup; patch -p1 <../glucose-syrup.4.0.patch.1; cd $OLDPATH
-cd $DIRNAME/patches/glucose-syrup; patch -p1 <../glucose-syrup.4.0.patch.2; cd $OLDPATH
-cd $DIRNAME/patches/glucose-syrup; patch -p1 <../glucose-syrup.4.0.patch.3; cd $OLDPATH
+cd $DIRNAME/patches/glucose-syrup; for i in 1 2 3 4; do patch -p1 <../glucose-syrup.4.0.patch.$i; done; cd $OLDPATH
 mv $DIRNAME/patches/glucose-syrup $DIRNAME/src/
 
 echo "Downloading gflags 2.1.1..."

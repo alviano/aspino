@@ -1,0 +1,11 @@
+diff -rupN glucose-syrup.patch.3/core/Solver.cc glucose-syrup.patch.4/core/Solver.cc
+--- glucose-syrup.patch.3/core/Solver.cc	2014-12-09 18:40:42.572463910 +0100
++++ glucose-syrup.patch.4/core/Solver.cc	2014-12-11 01:04:02.093669689 +0100
+@@ -891,6 +891,7 @@ void Solver::analyzeFinal(Lit p, vec<Lit
+     for (int i = trail.size() - 1; i >= trail_lim[0]; i--) {
+         Var x = var(trail[i]);
+         if (seen[x]) {
++            moreReason(trail[i]);
+             if (reason(x) == CRef_Undef) {
+                 assert(level(x) > 0);
+                 out_conflict.push(~trail[i]);
