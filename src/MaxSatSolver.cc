@@ -88,7 +88,6 @@ void MaxSatSolver::sameSoftVar(Lit soft, long weight) {
     
     if(softLiterals[pos] == soft) {
         weights[var(soft)] += weight;
-        upperbound += weight;
         return;
     }
         
@@ -106,13 +105,11 @@ void MaxSatSolver::sameSoftVar(Lit soft, long weight) {
         lowerbound += weights[var(soft)];
         for(int i = 0; i < softLiterals.size(); i++) if(softLiterals[i] == ~soft) { softLiterals[i] = soft; break; }
         weights[var(soft)] = weight - weights[var(soft)];
-        upperbound += weights[var(soft)];
     }
     else {
         assert(weights[var(soft)] > weight);
         lowerbound += weight;
         weights[var(soft)] -= weight;
-        upperbound += weights[var(soft)];
     }
 }
 
@@ -137,7 +134,6 @@ void MaxSatSolver::addWeightedClause(vec<Lit>& lits, long weight) {
     softLiterals.push(soft);
     assert_msg(weights[var(soft)] == 0, lits);
     weights[var(soft)] = weight;
-    upperbound += weight;
     setFrozen(var(soft), true);
 }
     
@@ -214,6 +210,7 @@ long MaxSatSolver::setAssumptions(long limit) {
 }
 
 lbool MaxSatSolver::solve() {
+    upperbound = LONG_MAX;
     cout << "o " << lowerbound << endl;
     detectLevels();
 
@@ -260,7 +257,7 @@ lbool MaxSatSolver::solveCurrentLevel() {
     trace(maxsat, 2, "Iteration " << iteration);
     lbool ret = solve_();
     trace(maxsat, 2, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
-    
+
     if(ret == l_False) return l_False;
     assert(ret == l_True);
     
@@ -287,10 +284,12 @@ lbool MaxSatSolver::solve_() {
         
         trace(maxsat, 2, "Solve with " << assumptions.size() << " assumptions. Current bounds: [" << lowerbound << ":" << upperbound << "]");
         trace(maxsat, 10, "Assumptions: " << assumptions);
-        PseudoBooleanSolver::solve();
         
-        if(status == l_True) {
-            updateUpperBound();
+        if(assumptions.size() == 0 && upperbound != LONG_MAX) status = l_Undef;
+        else PseudoBooleanSolver::solve();
+        
+        if(status != l_False) {
+            if(status == l_True) updateUpperBound();
             
             if(saturate && lastSoftLiteral < nVars()) {
                 lastSoftLiteral = nVars();
@@ -328,9 +327,13 @@ lbool MaxSatSolver::solve_() {
 
 void MaxSatSolver::updateUpperBound() {
     assert(weightOfPreviousLevel.size() > 0);
-    long newupperbound = lowerbound + weightOfPreviousLevel.last();
-    for(int i = 0; i < softLiterals.size(); i++) {
+    long newupperbound = lowerbound;
+    for(int i = 0; i < softLiterals.size(); i++)
         if(value(softLiterals[i]) == l_False) newupperbound += weights[var(softLiterals[i])];
+    for(int i = 0; i < levels.size(); i++) {
+        vec<Lit>& v = *levels[i];
+        for(int j = 0; j < v.size(); j++)
+            if(value(v[j]) == l_False) newupperbound += weights[var(v[j])];
     }
     if(newupperbound < upperbound) {
         upperbound = newupperbound;
@@ -341,21 +344,24 @@ void MaxSatSolver::updateUpperBound() {
 void MaxSatSolver::trim() {
     cancelUntil(0);
     
-    if(conflict.size() > 1) {
-        addClause(conflict);
-        int oldSize;
-        do{
-            assumptions.clear();
-            for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
-            oldSize = conflict.size();
-            PseudoBooleanSolver::solve();
-            assert(status == l_False);
-            trace(maxsat, 4, "Trim " << oldSize - conflict.size() << " literals from conflict");
-            trace(maxsat, 10, "Conflict: " << conflict);
-            cancelUntil(0);
-        }while(oldSize > conflict.size() && conflict.size() > 1);
-    }
-        
+    if(conflict.size() <= 1) return;
+
+    addClause(conflict);
+    int oldSize;
+    do{
+        assumptions.clear();
+        for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
+        oldSize = conflict.size();
+        PseudoBooleanSolver::solve();
+        assert(status == l_False);
+        trace(maxsat, 4, "Trim " << oldSize - conflict.size() << " literals from conflict");
+        trace(maxsat, 10, "Conflict: " << conflict);
+        cancelUntil(0);
+        if(conflict.size() <= 1) return;
+    }while(oldSize > conflict.size());
+    
+    assert(conflict.size() > 1);
+    
 //        if(conflict.size() > 1) {
 //            vec<Lit> copy;
 //            int n = conflict.size()-1;
