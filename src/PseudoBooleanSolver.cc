@@ -405,8 +405,8 @@ bool PseudoBooleanSolver::moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>&sel
     return true;
 }
 
-void PseudoBooleanSolver::moreReason(Lit lit) {
-    if(moreReasonWC[var(lit)] == NULL) return;
+bool PseudoBooleanSolver::moreReason(Lit lit) {
+    if(moreReasonWC[var(lit)] == NULL) return false;
     assert(decisionLevel() != 0);
     assert(reason(var(lit)) == CRef_Undef);
     WeightConstraint& wc = *moreReasonWC[var(lit)];
@@ -420,6 +420,7 @@ void PseudoBooleanSolver::moreReason(Lit lit) {
         if(level(var(l)) == 0) continue;
         seen[var(l)] = 1;
     }
+    return true;
 }
 
 void PseudoBooleanSolver::onCancel() {

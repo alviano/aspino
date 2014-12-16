@@ -67,7 +67,7 @@ protected:
     CRef checkInference(Lit lit, WeightConstraint& wc, int pos);
     
     virtual bool moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC);
-    virtual void moreReason(Lit lit);
+    virtual bool moreReason(Lit lit);
     virtual void onCancel();
     virtual void relocAll(ClauseAllocator& to);
     
