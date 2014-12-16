@@ -48,7 +48,9 @@ public:
     
 class PseudoBooleanSolver : public SatSolver {
 public:
-    PseudoBooleanSolver() : moreReasonClause(CRef_Undef), nextToPropagate(0) {}
+    static const CRef CRef_MoreConflict;
+    
+    PseudoBooleanSolver() : nextToPropagate(0) {}
     virtual ~PseudoBooleanSolver();
     
     virtual void newVar();
@@ -68,10 +70,8 @@ protected:
     
     virtual bool moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC);
     virtual bool moreReason(Lit lit);
+    virtual bool moreConflict(vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC);
     virtual void onCancel();
-    virtual void relocAll(ClauseAllocator& to);
-    
-    void setMoreReasonClause(CRef cr);
     
     vec<WeightConstraint*> wconstraints;
     vec< vec<WeightConstraint*> > propagators[2];
@@ -80,7 +80,8 @@ protected:
     vec<WeightConstraint*> moreReasonWC;
     vec<int> moreReasonTrailSize;
     vec<Var> moreReasonVars;
-    CRef moreReasonClause;
+    WeightConstraint* moreConflictWC;
+    Lit moreConflictLit;
     
     vec<bool> propagated;
     int nextToPropagate;

@@ -28,6 +28,8 @@ using namespace std;
 
 namespace aspino {
 
+const CRef PseudoBooleanSolver::CRef_MoreConflict = CRef_Undef - 1;
+    
 //void WeightConstraint::free(Minisat::ClauseAllocator& ca) {
 //    for(int i = 0; i < reasons.size(); i++)
 //        if(reasons[i] != CRef_Undef)
@@ -297,17 +299,9 @@ void PseudoBooleanSolver::restore(WeightConstraint& wc) {
 CRef PseudoBooleanSolver::checkConflict(Lit lit, WeightConstraint& wc, int pos) {
     if(wc.loosable < wc.coeffs[pos]) {
         trace(pbs, 4, "Conflict on " << wc);
-        vec<Lit> clause;
-        clause.push(~lit);
-        for(int k = wc.trail.size() - 1; k >= 0; k--) {
-            Lit l = wc.lits[wc.trail[k]];
-            if(level(var(l)) == 0) continue;
-            clause.push(l);
-        }
-        trace(pbs, 4, "Model conflict with clause " << clause);
-        assert(clause.size() > 1);
-        setMoreReasonClause(ca.alloc(clause));
-        return moreReasonClause;
+        moreConflictWC = &wc;
+        moreConflictLit = ~lit;
+        return CRef_MoreConflict;
     }
     return CRef_Undef;
 }
@@ -330,29 +324,14 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos)
         }
         else if(wlit != ~lit && !propagated[var(wlit)]) {
             trace(pbs, 4, "Conflict on literal " << wlit << " in " << wc);
-            vec<Lit> clause;
-            clause.push(wlit);
-            for(int k = wc.trail.size() - 1; k >= 0; k--) {
-                Lit l = wc.lits[wc.trail[k]];
-                assert(value(l) == l_False);
-                if(level(var(l)) == 0) continue;
-                clause.push(l);
-            }
-            assert(clause.size() > 1);
-            trace(pbs, 4, "Model conflict with clause " << clause);
-            assert(clause.size() > 1);
-            setMoreReasonClause(ca.alloc(clause));
-            return moreReasonClause;
+            moreConflictWC = &wc;
+            moreConflictLit = wlit;
+            return CRef_MoreConflict;
         }
     }
     while(value(wc.lits[wc.first]) == l_False) if(--wc.first < 0) break;
     
     return CRef_Undef;
-}
-
-void PseudoBooleanSolver::setMoreReasonClause(CRef cr) {
-    if(moreReasonClause != CRef_Undef) ca.free(moreReasonClause);
-    moreReasonClause = cr;
 }
 
 void PseudoBooleanSolver::newVar() {
@@ -423,6 +402,54 @@ bool PseudoBooleanSolver::moreReason(Lit lit) {
     return true;
 }
 
+bool PseudoBooleanSolver::moreConflict(vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC) {
+    if(moreConflictWC == NULL) return false;
+    assert(decisionLevel() != 0);
+    
+    if(!seen[var(moreConflictLit)] && level(var(moreConflictLit)) > 0) {
+        if(!isSelector(var(moreConflictLit))) varBumpActivity(var(moreConflictLit));
+        seen[var(moreConflictLit)] = 1;
+        assert(level(var(moreConflictLit)) == decisionLevel());
+        pathC++;
+        // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+        if(!isSelector(var(moreConflictLit)) && (reason(var(moreConflictLit)) != CRef_Undef) && ca[reason(var(moreConflictLit))].learnt())
+            lastDecisionLevel.push(moreConflictLit);
+    }
+    
+    WeightConstraint& wc = *moreConflictWC;
+    moreConflictWC = NULL;
+    int trailSize = wc.trail.size();
+    assert(trailSize >= 0);
+    while(--trailSize >= 0) {
+        Lit q = wc.lits[wc.trail[trailSize]];
+        assert(value(q) == l_False);
+        
+        if(seen[var(q)]) continue;
+        if(level(var(q)) == 0) continue;
+        
+        if(!isSelector(var(q)))
+            varBumpActivity(var(q));
+        
+        seen[var(q)] = 1;
+        
+        if(level(var(q)) >= decisionLevel()) {
+            pathC++;
+            // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+            if(!isSelector(var(q)) && (reason(var(q)) != CRef_Undef) && ca[reason(var(q))].learnt())
+                lastDecisionLevel.push(q);
+        }
+        else {
+            if(isSelector(var(q))) {
+                assert(value(q) == l_False);
+                selectors.push(q);
+            }
+            else 
+                out_learnt.push(q);
+        }
+    }
+    return true;
+}
+
 void PseudoBooleanSolver::onCancel() {
     trace(pbs, 2, "Cancel until level " << decisionLevel());
     while(nextToPropagate > nextToPropagateByUnit()) { 
@@ -437,13 +464,6 @@ void PseudoBooleanSolver::onCancel() {
         moreReasonWC[v] = NULL;
         moreReasonTrailSize[v] = -1;
     }
-    
-    setMoreReasonClause(CRef_Undef);
-}
-
-void PseudoBooleanSolver::relocAll(ClauseAllocator& to) {
-    SatSolver::relocAll(to);
-    if(moreReasonClause != CRef_Undef) ca.reloc(moreReasonClause, to);
 }
 
 int PseudoBooleanSolver::gcd(int a, int b) {
