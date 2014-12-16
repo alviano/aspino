@@ -1,6 +1,6 @@
 diff -rupN glucose-syrup.patch.5/core/Solver.cc glucose-syrup.patch.6/core/Solver.cc
 --- glucose-syrup.patch.5/core/Solver.cc	2014-12-16 15:04:10.718276171 +0100
-+++ glucose-syrup.patch.6/core/Solver.cc	2014-12-16 16:21:09.300482900 +0100
++++ glucose-syrup.patch.6/core/Solver.cc	2014-12-16 19:34:11.488110745 +0100
 @@ -667,60 +667,62 @@ void Solver::analyze(CRef confl, vec<Lit
      int index = trail.size() - 1;
      do {
@@ -14,6 +14,14 @@ diff -rupN glucose-syrup.patch.5/core/Solver.cc glucose-syrup.patch.6/core/Solve
 -            Lit tmp = c[0];
 -            c[0] = c[1], c[1] = tmp;
 -        }
+-
+-        if (c.learnt()) {
+-            parallelImportClauseDuringConflictAnalysis(c,confl);
+-            claBumpActivity(c);
+-         } else { // original clause
+-            if (!c.getSeen()) {
+-                originalClausesSeen++;
+-                c.setSeen(true);
 +        if(!moreConflict(out_learnt, selectors, pathC)) {
 +            Clause& c = ca[confl];
 +            // Special case for binary clauses
@@ -24,14 +32,7 @@ diff -rupN glucose-syrup.patch.5/core/Solver.cc glucose-syrup.patch.6/core/Solve
 +                Lit tmp = c[0];
 +                c[0] = c[1], c[1] = tmp;
 +            }
- 
--        if (c.learnt()) {
--            parallelImportClauseDuringConflictAnalysis(c,confl);
--            claBumpActivity(c);
--         } else { // original clause
--            if (!c.getSeen()) {
--                originalClausesSeen++;
--                c.setSeen(true);
++
 +            if (c.learnt()) {
 +                parallelImportClauseDuringConflictAnalysis(c,confl);
 +                claBumpActivity(c);
@@ -110,9 +111,44 @@ diff -rupN glucose-syrup.patch.5/core/Solver.cc glucose-syrup.patch.6/core/Solve
                  }
              }
          }
+@@ -894,20 +896,21 @@ void Solver::analyzeFinal(Lit p, vec<Lit
+     for (int i = trail.size() - 1; i >= trail_lim[0]; i--) {
+         Var x = var(trail[i]);
+         if (seen[x]) {
+-            if(moreReason(trail[i])) continue;
+-            if (reason(x) == CRef_Undef) {
+-                assert(level(x) > 0);
+-                out_conflict.push(~trail[i]);
+-            } else {
+-                Clause& c = ca[reason(x)];
+-                //                for (int j = 1; j < c.size(); j++) Minisat (glucose 2.0) loop 
+-                // Bug in case of assumptions due to special data structures for Binary.
+-                // Many thanks to Sam Bayless (sbayless@cs.ubc.ca) for discover this bug.
+-                for (int j = ((c.size() == 2) ? 0 : 1); j < c.size(); j++)
+-                    if (level(var(c[j])) > 0)
+-                        seen[var(c[j])] = 1;
++            if(!moreReason(trail[i])) {
++                if (reason(x) == CRef_Undef) {
++                    assert(level(x) > 0);
++                    out_conflict.push(~trail[i]);
++                } else {
++                    Clause& c = ca[reason(x)];
++                    //                for (int j = 1; j < c.size(); j++) Minisat (glucose 2.0) loop 
++                    // Bug in case of assumptions due to special data structures for Binary.
++                    // Many thanks to Sam Bayless (sbayless@cs.ubc.ca) for discover this bug.
++                    for (int j = ((c.size() == 2) ? 0 : 1); j < c.size(); j++)
++                        if (level(var(c[j])) > 0)
++                            seen[var(c[j])] = 1;
++                }
+             }
+-
++            
+             seen[x] = 0;
+         }
+     }
 diff -rupN glucose-syrup.patch.5/core/Solver.h glucose-syrup.patch.6/core/Solver.h
 --- glucose-syrup.patch.5/core/Solver.h	2014-12-16 15:04:10.718276171 +0100
-+++ glucose-syrup.patch.6/core/Solver.h	2014-12-16 16:21:09.300482900 +0100
++++ glucose-syrup.patch.6/core/Solver.h	2014-12-16 19:34:11.488110745 +0100
 @@ -395,6 +395,7 @@ protected:
      uint32_t abstractLevel    (Var x) const; // Used to represent an abstraction of sets of decision levels.
      virtual inline bool moreReason(Lit, vec<Lit>&, vec<Lit>&, int&) { return false; } // Used by propagators in analyze
