@@ -306,7 +306,7 @@ CRef PseudoBooleanSolver::checkConflict(Lit lit, WeightConstraint& wc, int pos) 
         }
         trace(pbs, 4, "Model conflict with clause " << clause);
         assert(clause.size() > 1);
-        setMoreReasonClause(ca.alloc(clause, true));
+        setMoreReasonClause(ca.alloc(clause));
         return moreReasonClause;
     }
     return CRef_Undef;
@@ -341,7 +341,7 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos)
             assert(clause.size() > 1);
             trace(pbs, 4, "Model conflict with clause " << clause);
             assert(clause.size() > 1);
-            setMoreReasonClause(ca.alloc(clause, true));
+            setMoreReasonClause(ca.alloc(clause));
             return moreReasonClause;
         }
     }
@@ -366,6 +366,45 @@ void PseudoBooleanSolver::newVar() {
     propagated.push(false);
 }
 
+bool PseudoBooleanSolver::moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC) {
+    if(moreReasonWC[var(lit)] == NULL) return false;
+    assert(decisionLevel() != 0);
+    assert(reason(var(lit)) == CRef_Undef);
+    WeightConstraint& wc = *moreReasonWC[var(lit)];
+    int trailSize = moreReasonTrailSize[var(lit)];
+    assert(trailSize >= 0);
+    assert(trailSize <= wc.trail.size());
+    while(--trailSize >= 0) {
+        Lit q = wc.lits[wc.trail[trailSize]];
+        assert(value(q) == l_False);
+        assert(level(var(q)) <= level(var(lit)));
+        
+        if(seen[var(q)]) continue;
+        if(level(var(q)) == 0) continue;
+        
+        if(!isSelector(var(q)))
+            varBumpActivity(var(q));
+        
+        seen[var(q)] = 1;
+        
+        if(level(var(q)) >= decisionLevel()) {
+            pathC++;
+            // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+            if(!isSelector(var(q)) && (reason(var(q)) != CRef_Undef) && ca[reason(var(q))].learnt())
+                lastDecisionLevel.push(q);
+        }
+        else {
+            if(isSelector(var(q))) {
+                assert(value(q) == l_False);
+                selectors.push(q);
+            }
+            else 
+                out_learnt.push(q);
+        }
+    }
+    return true;
+}
+
 void PseudoBooleanSolver::moreReason(Lit lit) {
     if(moreReasonWC[var(lit)] == NULL) return;
     assert(decisionLevel() != 0);
@@ -374,19 +413,13 @@ void PseudoBooleanSolver::moreReason(Lit lit) {
     int trailSize = moreReasonTrailSize[var(lit)];
     assert(trailSize >= 0);
     assert(trailSize <= wc.trail.size());
-    vec<Lit> clause;
-    clause.push(lit);
     while(--trailSize >= 0) {
         Lit l = wc.lits[wc.trail[trailSize]];
         assert(value(l) == l_False);
         assert(level(var(l)) <= level(var(lit)));
         if(level(var(l)) == 0) continue;
-        clause.push(l);
+        seen[var(l)] = 1;
     }
-    assert(clause.size() > 1);
-    trace(pbs, 4, "Setting reason of " << lit << " to clause " << clause);
-    setMoreReasonClause(ca.alloc(clause, true));
-    vardata[var(lit)].reason = moreReasonClause;
 }
 
 void PseudoBooleanSolver::onCancel() {
