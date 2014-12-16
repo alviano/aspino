@@ -306,9 +306,8 @@ CRef PseudoBooleanSolver::checkConflict(Lit lit, WeightConstraint& wc, int pos) 
         }
         trace(pbs, 4, "Model conflict with clause " << clause);
         assert(clause.size() > 1);
-        CRef cr = ca.alloc(clause, true);
-        moreReasonClauses.push(cr);
-        return cr;
+        setMoreReasonClause(ca.alloc(clause, true));
+        return moreReasonClause;
     }
     return CRef_Undef;
 }
@@ -342,9 +341,8 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos)
             assert(clause.size() > 1);
             trace(pbs, 4, "Model conflict with clause " << clause);
             assert(clause.size() > 1);
-            CRef cr = ca.alloc(clause, true);
-            moreReasonClauses.push(cr);
-            return cr;
+            setMoreReasonClause(ca.alloc(clause, true));
+            return moreReasonClause;
         }
     }
     while(value(wc.lits[wc.first]) == l_False) if(--wc.first < 0) break;
@@ -352,6 +350,10 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos)
     return CRef_Undef;
 }
 
+void PseudoBooleanSolver::setMoreReasonClause(CRef cr) {
+    if(moreReasonClause != CRef_Undef) ca.free(moreReasonClause);
+    moreReasonClause = cr;
+}
 
 void PseudoBooleanSolver::newVar() {
     SatSolver::newVar();
@@ -383,9 +385,8 @@ void PseudoBooleanSolver::moreReason(Lit lit) {
     }
     assert(clause.size() > 1);
     trace(pbs, 4, "Setting reason of " << lit << " to clause " << clause);
-    CRef cr = ca.alloc(clause, true);
-    moreReasonClauses.push(cr);
-    vardata[var(lit)].reason = cr;
+    setMoreReasonClause(ca.alloc(clause, true));
+    vardata[var(lit)].reason = moreReasonClause;
 }
 
 void PseudoBooleanSolver::onCancel() {
@@ -403,18 +404,12 @@ void PseudoBooleanSolver::onCancel() {
         moreReasonTrailSize[v] = -1;
     }
     
-    while(moreReasonClauses.size() > 0) {
-        CRef cr = moreReasonClauses.last();
-        moreReasonClauses.pop();
-        assert(!locked(ca[cr]));
-        ca.free(cr);
-    }
+    setMoreReasonClause(CRef_Undef);
 }
 
 void PseudoBooleanSolver::relocAll(ClauseAllocator& to) {
     SatSolver::relocAll(to);
-    for (int i = 0; i < moreReasonClauses.size(); i++)
-        ca.reloc(moreReasonClauses[i], to);
+    if(moreReasonClause != CRef_Undef) ca.reloc(moreReasonClause, to);
 }
 
 int PseudoBooleanSolver::gcd(int a, int b) {
