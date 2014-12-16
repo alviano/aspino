@@ -1,0 +1,123 @@
+diff -rupN glucose-syrup.patch.5/core/Solver.cc glucose-syrup.patch.6/core/Solver.cc
+--- glucose-syrup.patch.5/core/Solver.cc	2014-12-16 15:04:10.718276171 +0100
++++ glucose-syrup.patch.6/core/Solver.cc	2014-12-16 16:21:09.300482900 +0100
+@@ -667,60 +667,62 @@ void Solver::analyze(CRef confl, vec<Lit
+     int index = trail.size() - 1;
+     do {
+         assert(confl != CRef_Undef); // (otherwise should be UIP)
+-        Clause& c = ca[confl];
+-        // Special case for binary clauses
+-        // The first one has to be SAT
+-        if (p != lit_Undef && c.size() == 2 && value(c[0]) == l_False) {
+-
+-            assert(value(c[1]) == l_True);
+-            Lit tmp = c[0];
+-            c[0] = c[1], c[1] = tmp;
+-        }
++        if(!moreConflict(out_learnt, selectors, pathC)) {
++            Clause& c = ca[confl];
++            // Special case for binary clauses
++            // The first one has to be SAT
++            if (p != lit_Undef && c.size() == 2 && value(c[0]) == l_False) {
++
++                assert(value(c[1]) == l_True);
++                Lit tmp = c[0];
++                c[0] = c[1], c[1] = tmp;
++            }
+ 
+-        if (c.learnt()) {
+-            parallelImportClauseDuringConflictAnalysis(c,confl);
+-            claBumpActivity(c);
+-         } else { // original clause
+-            if (!c.getSeen()) {
+-                originalClausesSeen++;
+-                c.setSeen(true);
++            if (c.learnt()) {
++                parallelImportClauseDuringConflictAnalysis(c,confl);
++                claBumpActivity(c);
++             } else { // original clause
++                if (!c.getSeen()) {
++                    originalClausesSeen++;
++                    c.setSeen(true);
++                }
+             }
+-        }
+ 
+-        // DYNAMIC NBLEVEL trick (see competition'09 companion paper)
+-        if (c.learnt() && c.lbd() > 2) {
+-            unsigned int nblevels = computeLBD(c);
+-            if (nblevels + 1 < c.lbd()) { // improve the LBD
+-                if (c.lbd() <= lbLBDFrozenClause) {
+-                    c.setCanBeDel(false);
++            // DYNAMIC NBLEVEL trick (see competition'09 companion paper)
++            if (c.learnt() && c.lbd() > 2) {
++                unsigned int nblevels = computeLBD(c);
++                if (nblevels + 1 < c.lbd()) { // improve the LBD
++                    if (c.lbd() <= lbLBDFrozenClause) {
++                        c.setCanBeDel(false);
++                    }
++                    // seems to be interesting : keep it for the next round
++                    c.setLBD(nblevels); // Update it
+                 }
+-                // seems to be interesting : keep it for the next round
+-                c.setLBD(nblevels); // Update it
+             }
+-        }
+ 
+ 
+-        for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++) {
+-            Lit q = c[j];
++            for (int j = (p == lit_Undef) ? 0 : 1; j < c.size(); j++) {
++                Lit q = c[j];
+ 
+-            if (!seen[var(q)]) {
+-                if (level(var(q)) == 0) {
+-                } else { // Here, the old case 
+-                    if(!isSelector(var(q)))
+-                        varBumpActivity(var(q));
+-                    seen[var(q)] = 1;
+-                    if (level(var(q)) >= decisionLevel()) {
+-                        pathC++;
+-                        // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+-                        if (!isSelector(var(q)) &&  (reason(var(q)) != CRef_Undef) && ca[reason(var(q))].learnt())
+-                            lastDecisionLevel.push(q);
+-                    } else {
+-                        if(isSelector(var(q))) {
+-                            assert(value(q) == l_False);
+-                            selectors.push(q);
+-                        } else 
+-                            out_learnt.push(q);
+-                   }
++                if (!seen[var(q)]) {
++                    if (level(var(q)) == 0) {
++                    } else { // Here, the old case 
++                        if(!isSelector(var(q)))
++                            varBumpActivity(var(q));
++                        seen[var(q)] = 1;
++                        if (level(var(q)) >= decisionLevel()) {
++                            pathC++;
++                            // UPDATEVARACTIVITY trick (see competition'09 companion paper)
++                            if (!isSelector(var(q)) &&  (reason(var(q)) != CRef_Undef) && ca[reason(var(q))].learnt())
++                                lastDecisionLevel.push(q);
++                        } else {
++                            if(isSelector(var(q))) {
++                                assert(value(q) == l_False);
++                                selectors.push(q);
++                            } else 
++                                out_learnt.push(q);
++                       }
++                    }
+                 }
+             }
+         }
+diff -rupN glucose-syrup.patch.5/core/Solver.h glucose-syrup.patch.6/core/Solver.h
+--- glucose-syrup.patch.5/core/Solver.h	2014-12-16 15:04:10.718276171 +0100
++++ glucose-syrup.patch.6/core/Solver.h	2014-12-16 16:21:09.300482900 +0100
+@@ -395,6 +395,7 @@ protected:
+     uint32_t abstractLevel    (Var x) const; // Used to represent an abstraction of sets of decision levels.
+     virtual inline bool moreReason(Lit, vec<Lit>&, vec<Lit>&, int&) { return false; } // Used by propagators in analyze
+     virtual inline bool moreReason(Lit) { return true; } // Used by propagators in analyzeFinal
++    virtual inline bool moreConflict(vec<Lit>&, vec<Lit>&, int&) { return false; }
+     CRef     reason           (Var x) const;
+     int      level            (Var x) const;
+     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
