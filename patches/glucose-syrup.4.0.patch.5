@@ -1,0 +1,40 @@
+diff -rupN glucose-syrup.patch.4/core/Solver.cc glucose-syrup.patch.5/core/Solver.cc
+--- glucose-syrup.patch.4/core/Solver.cc	2014-12-11 01:04:02.093669689 +0100
++++ glucose-syrup.patch.5/core/Solver.cc	2014-12-16 14:35:04.945709721 +0100
+@@ -725,13 +725,16 @@ void Solver::analyze(CRef confl, vec<Lit
+             }
+         }
+ 
+-        // Select next clause to look at:
+-        while (!seen[var(trail[index--])]);
+-        p = trail[index + 1];
+-        moreReason(p);
+-        confl = reason(var(p));
+-        seen[var(p)] = 0;
+-        pathC--;
++        bool ret;
++        do {
++            // Select next clause to look at:
++            while (!seen[var(trail[index--])]);
++            p = trail[index + 1];
++            ret = moreReason(p, out_learnt, selectors, pathC);
++            confl = reason(var(p));
++            seen[var(p)] = 0;
++            pathC--;
++        }while(ret);
+ 
+     } while (pathC > 0);
+     out_learnt[0] = ~p;
+diff -rupN glucose-syrup.patch.4/core/Solver.h glucose-syrup.patch.5/core/Solver.h
+--- glucose-syrup.patch.4/core/Solver.h	2014-12-11 01:04:02.093669689 +0100
++++ glucose-syrup.patch.5/core/Solver.h	2014-12-16 14:35:04.945709721 +0100
+@@ -393,7 +393,8 @@ protected:
+     //
+     int      decisionLevel    ()      const; // Gives the current decisionlevel.
+     uint32_t abstractLevel    (Var x) const; // Used to represent an abstraction of sets of decision levels.
+-    virtual inline void moreReason(Lit) {}   // Used by propagators
++    virtual inline bool moreReason(Lit, vec<Lit>&, vec<Lit>&, int&) { return false; } // Used by propagators in analyze
++    virtual inline void moreReason(Lit) {} // Used by propagators in analyzeFinal
+     CRef     reason           (Var x) const;
+     int      level            (Var x) const;
+     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
