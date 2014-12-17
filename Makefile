@@ -3,8 +3,8 @@ BUILD = release
 
 ########## Available targets
 
-cxxflags.debug =    -DTRACE_ON
-linkflags.debug =
+cxxflags.debug =    -DTRACE_ON -DSAFE_EXIT -g
+linkflags.debug =   -g
 
 cxxflags.trace =    -DNDEBUG -DTRACE_ON -O3
 linkflags.trace =
@@ -12,7 +12,7 @@ linkflags.trace =
 cxxflags.release =  -DNDEBUG -O3
 linkflags.release =
 
-cxxflags.gprof =    -DNDEBUG -O3 -g -pg
+cxxflags.gprof =    -DNDEBUG -DSAFE_EXIT -O3 -g -pg
 linkflags.gprof =   -g -pg
 
 cxxflags.stats =    -DNDEBUG -DSTATS_ON -O3
