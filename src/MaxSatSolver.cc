@@ -347,18 +347,16 @@ void MaxSatSolver::trim() {
     if(conflict.size() <= 1) return;
 
     addClause(conflict);
-    int oldSize;
     do{
         assumptions.clear();
         for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
-        oldSize = conflict.size();
         PseudoBooleanSolver::solve();
         assert(status == l_False);
-        trace(maxsat, 4, "Trim " << oldSize - conflict.size() << " literals from conflict");
+        trace(maxsat, 4, "Trim " << assumptions.size() - conflict.size() << " literals from conflict");
         trace(maxsat, 10, "Conflict: " << conflict);
         cancelUntil(0);
         if(conflict.size() <= 1) return;
-    }while(oldSize > conflict.size());
+    }while(assumptions.size() > conflict.size());
     
     assert(conflict.size() > 1);
     
@@ -576,7 +574,9 @@ void MaxSatSolver::detectLevels() {
     if(levels.size() == 0) {
         trace(maxsat, 2, "Add fake, empty level");
         levels.push(new vec<Lit>());
+        weightOfPreviousLevel.push(cumulative);
     }
+    assert(weightOfPreviousLevel.size() == levels.size() + 1);
 }
 
 } // namespace aspino
