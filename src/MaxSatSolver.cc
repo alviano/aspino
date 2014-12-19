@@ -346,8 +346,8 @@ void MaxSatSolver::trim() {
     
     if(conflict.size() <= 1) return;
 
-    addClause(conflict);
     do{
+        addClause(conflict);
         assumptions.clear();
         for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
         PseudoBooleanSolver::solve();
