@@ -19,8 +19,8 @@
 
 #ifdef TRACE_ON
 
-DEFINE_int32(trace_sat, 0, "Set trace level of SAT solving.");
-DEFINE_int32(trace_pbs, 0, "Set trace level of PBS solving.");
-DEFINE_int32(trace_maxsat, 0, "Set trace level of MaxSAT solving.");
+Glucose::IntOption option_trace_sat("TRACE", "-trace-sat", "Set trace level of SAT solving.", 0, Glucose::IntRange(0, INT32_MAX));
+Glucose::IntOption option_trace_pbs("TRACE", "-trace-pbs", "Set trace level of PBS solving.", 0, Glucose::IntRange(0, INT32_MAX));
+Glucose::IntOption option_trace_maxsat("TRACE", "-trace-maxsat", "Set trace level of MAXSAT solving.", 0, Glucose::IntRange(0, INT32_MAX));
 
 #endif

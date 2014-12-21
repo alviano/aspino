@@ -24,28 +24,11 @@
 
 using Glucose::Map;
 
-bool validate_maxsat_strat(const char* name, const string& value) {
-    if(value == "one") return true;
-    if(value == "one_neg") return true;
-    if(value == "pmres") return true;
-    if(value == "pmres_split_conj") return true;
-    if(value == "pmres_log") return true;
-    cerr << "Invalid value for --" << name << ": " << value << "\n";
-    return false;
-}
-DEFINE_string(maxsat_strat, "one", "Set optimization strategy. Valid values: one, one_neg, pmres, pmres_log, pmres_split_conj.");
+Glucose::EnumOption option_maxsat_strat("MAXSAT", "-maxsat-strat", "Set optimization strategy.", "one|one-neg|pmres|pmres-log|pmres-split-conj");
+Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "-maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
 
-bool validate_maxsat_disjcores(const char* name, const string& value) {
-    if(value == "no") return true;
-    if(value == "pre") return true;
-    if(value == "all") return true;
-    cerr << "Invalid value for --" << name << ": " << value << "\n";
-    return false;
-}
-DEFINE_string(maxsat_disjcores, "pre", "Set disjunct unsatisfiable cores policy. Valid values: no, pre, all.");
-
-DEFINE_bool(maxsat_saturate, false, "Eliminate all cores of weight W before considering any core of level smaller than W.");
-DEFINE_bool(maxsat_printmodel, true, "Print optimal model if found.");
+Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "-maxsat-printmodel", "Print optimal model if found.", true);
+Glucose::BoolOption option_maxsat_saturate("MAXSAT", "-maxsat-saturate", "Eliminate all cores of weight W before considering any core of level smaller than W.", false);
 
 namespace aspino {
 
@@ -64,19 +47,19 @@ static long parseLong(B& in) {
 
     
 MaxSatSolver::MaxSatSolver() : lowerbound(0) {
-    if(FLAGS_maxsat_strat == "one") corestrat = &MaxSatSolver::corestrat_one;
-    else if(FLAGS_maxsat_strat == "one_neg") corestrat = &MaxSatSolver::corestrat_one_neg;
-    else if(FLAGS_maxsat_strat == "pmres") corestrat = &MaxSatSolver::corestrat_pmres;
-    else if(FLAGS_maxsat_strat == "pmres_split_conj") corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
-    else if(FLAGS_maxsat_strat == "pmres_log") corestrat = &MaxSatSolver::corestrat_pmreslog;
+    if(strcmp(option_maxsat_strat, "one") == 0) corestrat = &MaxSatSolver::corestrat_one;
+    else if(strcmp(option_maxsat_strat, "one-neg") == 0) corestrat = &MaxSatSolver::corestrat_one_neg;
+    else if(strcmp(option_maxsat_strat, "pmres") == 0) corestrat = &MaxSatSolver::corestrat_pmres;
+    else if(strcmp(option_maxsat_strat, "pmres-split-conj") == 0) corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
+    else if(strcmp(option_maxsat_strat, "pmres-log") == 0) corestrat = &MaxSatSolver::corestrat_pmreslog;
     else assert(0);
     
-    if(FLAGS_maxsat_disjcores == "no") disjcores = NO;
-    else if(FLAGS_maxsat_disjcores == "pre") disjcores = PRE;
-    else if(FLAGS_maxsat_disjcores == "all") disjcores = ALL;
+    if(strcmp(option_maxsat_disjcores, "no") == 0) disjcores = NO;
+    else if(strcmp(option_maxsat_disjcores, "pre") == 0) disjcores = PRE;
+    else if(strcmp(option_maxsat_disjcores, "all") == 0) disjcores = ALL;
     else assert(0);
     
-    saturate = FLAGS_maxsat_saturate;
+    saturate = option_maxsat_saturate;
     setIncrementalMode();
 }
 
@@ -267,7 +250,7 @@ lbool MaxSatSolver::solve() {
     while(levels.size() > 0) { delete levels.last(); levels.pop(); }
     
     cout << "s OPTIMUM FOUND" << endl;
-    if(FLAGS_maxsat_printmodel) printModel();
+    if(option_maxsat_printmodel) printModel();
     return l_True;
 }
 

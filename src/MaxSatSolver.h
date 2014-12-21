@@ -20,10 +20,6 @@
 
 #include "PseudoBooleanSolver.h"
 
-DECLARE_string(maxsat_strat);
-DECLARE_string(maxsat_disjcores);
-DECLARE_bool(maxsat_saturate);
-
 namespace aspino {
 
 class MaxSatSolver : public PseudoBooleanSolver {

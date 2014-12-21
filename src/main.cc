@@ -22,57 +22,58 @@
 #include "MaxSatSolver.h"
 #include "utils/trace.h"
 
+#include <utils/Options.h>
+
 #include <errno.h>
 #include <signal.h>
 #include <zlib.h>
 
-#include <gflags/gflags.h>
 #include <string>
 #include <iostream>
+#include <fpu_control.h>
 
 using namespace aspino;
 using namespace std;
 
-static bool validate_mode(const char* name, const string& value) {
-    if(value == "asp") return true;
-    if(value == "sat") return true;
-    if(value == "maxsat") return true;
-    if(value == "pbs") return true;
-    cerr << "Invalid value for --" << name << ": " << value << "\n";
-    return false;
-}
-DEFINE_string(mode, "asp", "How to interpret input. Valid values: asp, sat, maxsat, pbs.");
-DEFINE_int32(n, 1, "Number of desired solutions. Non-positive integers are interpreted as unbounded.");
-
-extern bool validate_maxsat_strat(const char* name, const string& value);
-extern bool validate_maxsat_disjcores(const char* name, const string& value);
+static Glucose::EnumOption option_mode("MAIN", "-mode", "How to interpret input.\n", "asp|sat|maxsat|pbs");
+static Glucose::IntOption option_n("MAIN", "n", "Number of desired solutions. Non-positive integers are interpreted as unbounded.\n", 1, Glucose::IntRange(0, INT32_MAX));
 
 static aspino::AbstractSolver* solver;
 
 static void SIGINT_interrupt(int) { solver->interrupt(); }
+
+static Glucose::IntOption opt_size_lbd_queue("SUK", "szLBDQueue", "The size of moving average for LBD (restarts)", 50, Glucose::IntRange(10, INT32_MAX));
 
 int main(int argc, char** argv)
 {
     signal(SIGINT, SIGINT_interrupt);
     signal(SIGTERM, SIGINT_interrupt);
 
-    gflags::SetUsageMessage(string()
-        + "Solve ASP or SAT problems read from STDIN or provided as command-line argument.\n"
-        + "usage: " + argv[0] + " [flags] [input-file]");
+    Glucose::setUsageHelp(
+        "Solve ASP or SAT problems read from STDIN or provided as command-line argument.\n\n"
+        "usage: %s [flags] [input-file]\n");
 
-    gflags::RegisterFlagValidator(&FLAGS_mode, &validate_mode);
-    gflags::RegisterFlagValidator(&FLAGS_maxsat_strat, &validate_maxsat_strat);
-    gflags::RegisterFlagValidator(&FLAGS_maxsat_disjcores, &validate_maxsat_disjcores);
-    gflags::ParseCommandLineFlags(&argc, &argv, true);
-    
-    if(FLAGS_mode == "asp")
+#if defined(__linux__)
+    fpu_control_t oldcw, newcw;
+    _FPU_GETCW(oldcw); newcw = (oldcw & ~_FPU_EXTENDED) | _FPU_DOUBLE; _FPU_SETCW(newcw);
+    //printf("c WARNING: for repeatability, setting FPU to use double precision\n");
+#endif
+
+    Glucose::IntOption cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, Glucose::IntRange(0, INT32_MAX));
+    Glucose::IntOption mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, Glucose::IntRange(0, INT32_MAX));
+
+//    gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+    Glucose::parseOptions(argc, argv, true);
+
+    if(strcmp(option_mode, "asp") == 0)
 //        solver = new AspSolver();
         { cerr << "ASP is not currently supported." << endl; exit(-1); }
-    else if(FLAGS_mode == "sat")
+    else if(strcmp(option_mode, "sat") == 0)
         solver = new SatSolver();
-    else if(FLAGS_mode == "maxsat")
+    else if(strcmp(option_mode, "maxsat") == 0)
         solver = new MaxSatSolver();
-    else if(FLAGS_mode == "pbs")
+    else if(strcmp(option_mode, "pbs") == 0)
         solver = new PseudoBooleanSolver();
     else
         assert(0);
@@ -92,7 +93,7 @@ int main(int argc, char** argv)
         solver->exit(20);
     }
     
-    lbool ret = solver->solve(FLAGS_n);
+    lbool ret = solver->solve(option_n);
     
 #ifndef SAFE_EXIT
     solver->exit(ret == l_True ? 10 : ret == l_False ? 20 : 0);     // (faster than "return", which will invoke the destructor for 'Solver')
