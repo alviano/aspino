@@ -24,11 +24,11 @@
 
 using Glucose::Map;
 
-Glucose::EnumOption option_maxsat_strat("MAXSAT", "-maxsat-strat", "Set optimization strategy.", "one|one-neg|pmres|pmres-log|pmres-split-conj");
-Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "-maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
+Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-neg|pmres|pmres-log|pmres-split-conj");
+Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
 
-Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "-maxsat-printmodel", "Print optimal model if found.", true);
-Glucose::BoolOption option_maxsat_saturate("MAXSAT", "-maxsat-saturate", "Eliminate all cores of weight W before considering any core of level smaller than W.", false);
+Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
+Glucose::BoolOption option_maxsat_saturate("MAXSAT", "maxsat-saturate", "Eliminate all cores of weight W before considering any core of level smaller than W.", false);
 
 namespace aspino {
 
@@ -230,17 +230,13 @@ lbool MaxSatSolver::solve() {
     for(;;) {
         assert(levels.size() > 0);
         lbool ret = solveCurrentLevel();
-        if(ret == l_False) {
-            cout << "s UNSATISFIABLE" << endl;
-            return l_False;
-        }
+        if(ret == l_False) { cout << "s UNSATISFIABLE" << endl; return l_False; }
         assert(ret == l_True);
         
         if(lowerbound == upperbound) break;
         
         cancelUntil(0);
         for(int i = 0; i < softLiterals.size(); i++) {
-            assert(weights[var(softLiterals[i])] + lowerbound > upperbound);
             addClause(softLiterals[i]);
             trace(maxsat, 10, "Hardening of " << softLiterals[i] << " of weight " << weights[var(softLiterals[i])]);
             weights[var(softLiterals[i])] = 0;
@@ -248,6 +244,14 @@ lbool MaxSatSolver::solve() {
     }
     
     while(levels.size() > 0) { delete levels.last(); levels.pop(); }
+    
+    if(upperbound == LONG_MAX) {
+        trace(maxsat, 2, "Still no model! Try without assumptions...");
+        assumptions.clear();
+        PseudoBooleanSolver::solve();
+        if(status == l_False) { cout << "s UNSATISFIABLE" << endl; return l_False; }
+        updateUpperBound();
+    }
     
     cout << "s OPTIMUM FOUND" << endl;
     if(option_maxsat_printmodel) printModel();
@@ -290,11 +294,11 @@ lbool MaxSatSolver::solveCurrentLevel() {
 }
 
 lbool MaxSatSolver::solve_() {
-    long limit = firstLimit;
+    long limit = firstLimit != LONG_MAX ? firstLimit : setAssumptions(LONG_MAX);
     long nextLimit;
     bool foundCore = false;
     
-    bool allowToSkip = true;
+//    bool allowToSkip = true;
     
     for(;;) {
         //aspino::shuffle(softLiterals);
@@ -303,7 +307,7 @@ lbool MaxSatSolver::solve_() {
         trace(maxsat, 2, "Solve with " << assumptions.size() << " assumptions. Current bounds: [" << lowerbound << ":" << upperbound << "]");
         trace(maxsat, 20, "Assumptions: " << assumptions);
         
-        if(assumptions.size() == 0 && upperbound != LONG_MAX) status = l_Undef;
+        if(assumptions.size() == 0 /*&& upperbound != LONG_MAX*/) status = l_Undef;
         else PseudoBooleanSolver::solve();
         
         if(status != l_False) {
@@ -316,11 +320,11 @@ lbool MaxSatSolver::solve_() {
             }
             
             if(nextLimit == limit) {
-                trace(maxsat, 4, "SAT! No other limit to try");
+                trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " No other limit to try");
                 return l_True;
             }
             
-            trace(maxsat, 4, "SAT! Decrease limit to " << nextLimit);
+            trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " Decrease limit to " << nextLimit);
             limit = nextLimit;
             if(!foundCore) firstLimit = limit;
 

@@ -1,0 +1,66 @@
+diff -rupN glucose-syrup.patch.7/utils/Options.h glucose-syrup.patch.8/utils/Options.h
+--- glucose-syrup.patch.7/utils/Options.h	2014-12-21 18:37:19.214908802 +0100
++++ glucose-syrup.patch.8/utils/Options.h	2014-12-21 19:18:28.956813535 +0100
+@@ -140,7 +140,9 @@ class DoubleOption : public Option
+     virtual bool parse(const char* str){
+         const char* span = str; 
+ 
+-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
++        if (!match(span, "-")) return false;
++        match(span, "-");
++        if (!match(span, name) || !match(span, "="))
+             return false;
+ 
+         char*  end;
+@@ -198,7 +200,9 @@ class IntOption : public Option
+     virtual bool parse(const char* str){
+         const char* span = str; 
+ 
+-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
++        if (!match(span, "-")) return false;
++        match(span, "-");
++        if (!match(span, name) || !match(span, "="))
+             return false;
+ 
+         char*   end;
+@@ -260,7 +264,9 @@ class Int64Option : public Option
+     virtual bool parse(const char* str){
+         const char* span = str; 
+ 
+-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
++        if (!match(span, "-")) return false;
++        match(span, "-");
++        if (!match(span, name) || !match(span, "="))
+             return false;
+ 
+         char*   end;
+@@ -320,7 +326,9 @@ class StringOption : public Option
+     virtual bool parse(const char* str){
+         const char* span = str; 
+ 
+-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
++        if (!match(span, "-")) return false;
++        match(span, "-");
++        if (!match(span, name) || !match(span, "="))
+             return false;
+ 
+         value = span;
+@@ -368,7 +376,9 @@ class EnumOption : public Option
+     virtual bool parse(const char* str){
+         const char* span = str; 
+ 
+-        if (!match(span, "-") || !match(span, name) || !match(span, "="))
++        if (!match(span, "-")) return false;
++        match(span, "-");
++        if (!match(span, name) || !match(span, "="))
+             return false;
+         
+         value = -1;
+@@ -411,6 +421,7 @@ class BoolOption : public Option
+         const char* span = str; 
+         
+         if (match(span, "-")){
++            match(span, "-");
+             bool b = !match(span, "no-");
+ 
+             if (strcmp(span, name) == 0){
