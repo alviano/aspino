@@ -267,7 +267,6 @@ lbool MaxSatSolver::solve() {
     while(levels.size() > 0) { delete levels.last(); levels.pop(); }
     
     cout << "s OPTIMUM FOUND" << endl;
-    copyModel();
     if(FLAGS_maxsat_printmodel) printModel();
     return l_True;
 }
@@ -354,7 +353,11 @@ lbool MaxSatSolver::solve_() {
         
         cancelUntil(0);
 //        trim();
-        minimize();
+//        int oldSize;
+//        do{
+//            oldSize = conflict.size();
+            minimize();
+//        }while(oldSize != conflict.size());
         addClause(conflict);
 
 //        numberOfCores++;
@@ -389,6 +392,8 @@ void MaxSatSolver::updateUpperBound() {
     }
     if(newupperbound < upperbound) {
         upperbound = newupperbound;
+        copyModel();
+        trace(maxsat, 20, "Model: " << model);
         cout << "c ub " << upperbound << endl;
     }
 }
@@ -418,7 +423,7 @@ void MaxSatSolver::minimize() {
     if(conflict.size() <= 1) return;
     
     static int64_t previousConflicts = 0;
-    int64_t budget = 100 * (conflicts - previousConflicts) / 100;
+    int64_t budget = 25 * (conflicts - previousConflicts) / 100;
     
     static vec<lbool> required;
     required.growTo(nVars(), l_False);
@@ -473,6 +478,69 @@ void MaxSatSolver::minimize() {
     budgetOff();
     previousConflicts = conflicts;
 }
+
+//void MaxSatSolver::minimize() {
+//    assert(decisionLevel() == 0);
+//    assert(upperbound != LONG_MAX);
+//    if(conflict.size() <= 1) return;
+//
+//    static int64_t previousConflicts = 0;
+//    int64_t budget = 100 * (conflicts - previousConflicts) / 100;
+//
+//    static vec<lbool> required;
+//    required.growTo(nVars(), l_False);
+//    for(int i = 0; i < conflict.size(); i++) required[var(conflict[i])] = l_False;
+//    
+//    vec<Lit> core;
+//    conflict.moveTo(core);
+//    
+//    assumptions.clear();
+//    int coreSize = 0;
+//    for(int i = 0; i < core.size(); i++) {
+//        if(modelValue(core[i]) != l_True) { assumptions.push(~core[i]); continue; }
+//        core[coreSize++] = core[i];
+//    }
+//    core.shrink_(core.size()-coreSize);
+//    
+//    int requiredAssumptions = assumptions.size();
+//    
+//    for(;;) {
+//        if(core.size() <= 1) break;
+//        
+//        assumptions.shrink_(assumptions.size()-requiredAssumptions);
+//        assumptions.push(~core[0]);
+//        
+//        trace(maxsat, 10, "Try to find a model with " << assumptions.size() << " assumptions (" << requiredAssumptions << " required, ie. " << 100*requiredAssumptions/(assumptions.size()+core.size()-1) << "% of the core)");
+//        setConfBudget(budget);
+//        PseudoBooleanSolver::solve();
+//    
+//        
+//
+//        if(status == l_False) {
+//            cancelUntil(0);
+//            trace(maxsat, 15, "UNSAT! The new conflict is minimal (size " << conflict.size() << ")");
+//            return;
+//        }
+//        
+//        assumptions.shrink_(assumptions.size()-requiredAssumptions);
+//        coreSize = 0;
+//        for(int i = 0; i < core.size(); i++) {
+//            if(value(core[i]) != l_True) { assumptions.push(~core[i]); continue; }
+//            core[coreSize++] = core[i];
+//        }
+//        requiredAssumptions = assumptions.size();
+//        core.shrink_(core.size()-coreSize);
+//    }
+//    
+//    assert(core.size() <= 1);
+//    assert(conflict.size() == 0);
+//    conflict.push(core.last());
+//    for(int i = 0; i < assumptions.size(); i++) conflict.push(~assumptions[i]);
+//    cancelUntil(0);
+//    
+//    budgetOff();
+//    previousConflicts = conflicts;
+//}
 
 void MaxSatSolver::corestrat_one(long limit) {
     trace(maxsat, 10, "Use algorithm one");

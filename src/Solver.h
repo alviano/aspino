@@ -44,6 +44,7 @@ using Minisat::lit_Undef;
 using Minisat::ClauseAllocator;
 using Minisat::Clause;
 
+ostream& operator<<(ostream& o, lbool l);
 ostream& operator<<(ostream& o, const Lit& l);
 template <class T> ostream& operator<<(ostream& o, const vec<T>& v) {
     o << "[ ";

@@ -18,6 +18,14 @@
 #include "Solver.h"
 
 namespace aspino {
+
+ostream& operator<<(ostream& o, lbool l) {
+    if(l == l_True) return o << "T";
+    if(l == l_False) return o << "F";
+    if(l == l_Undef) return o << "U";
+    assert(0);
+    return o;
+}
     
 ostream& operator<<(ostream& o, const Lit& l) {
     return o << (sign(l) ? "~" : "") << (var(l)+1);
