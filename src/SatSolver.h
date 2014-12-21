@@ -62,6 +62,7 @@ protected:
     void learnClauseFromModel();
     
     int inVars;
+    int inClauses;
     lbool status;
 };
 

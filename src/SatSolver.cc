@@ -17,6 +17,7 @@
 
 #include "SatSolver.h"
 
+#include "utils/algorithm.h"
 #include "utils/ParseUtils.h"
 #include "core/Dimacs.h"
 
@@ -110,6 +111,8 @@ void SatSolver::solve_() {
     // Search:
     int curr_restarts = 0;
     while(status == l_Undef) {
+//        cancelUntil(0);
+//        shuffle(assumptions);
         status = search(0);
         if(!withinBudget()) break;
         curr_restarts++;

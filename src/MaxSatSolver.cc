@@ -26,13 +26,14 @@ using Glucose::Map;
 
 bool validate_maxsat_strat(const char* name, const string& value) {
     if(value == "one") return true;
+    if(value == "one_neg") return true;
     if(value == "pmres") return true;
     if(value == "pmres_split_conj") return true;
     if(value == "pmres_log") return true;
     cerr << "Invalid value for --" << name << ": " << value << "\n";
     return false;
 }
-DEFINE_string(maxsat_strat, "one", "Set optimization strategy. Valid values: one, pmres, pmres_log, pmres_split_conj.");
+DEFINE_string(maxsat_strat, "one", "Set optimization strategy. Valid values: one, one_neg, pmres, pmres_log, pmres_split_conj.");
 
 bool validate_maxsat_disjcores(const char* name, const string& value) {
     if(value == "no") return true;
@@ -64,6 +65,7 @@ static long parseLong(B& in) {
     
 MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     if(FLAGS_maxsat_strat == "one") corestrat = &MaxSatSolver::corestrat_one;
+    else if(FLAGS_maxsat_strat == "one_neg") corestrat = &MaxSatSolver::corestrat_one_neg;
     else if(FLAGS_maxsat_strat == "pmres") corestrat = &MaxSatSolver::corestrat_pmres;
     else if(FLAGS_maxsat_strat == "pmres_split_conj") corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
     else if(FLAGS_maxsat_strat == "pmres_log") corestrat = &MaxSatSolver::corestrat_pmreslog;
@@ -75,6 +77,7 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     else assert(0);
     
     saturate = FLAGS_maxsat_saturate;
+    setIncrementalMode();
 }
 
 MaxSatSolver::~MaxSatSolver() {
@@ -146,7 +149,6 @@ void MaxSatSolver::parse(gzFile in_) {
     
     vec<Lit> lits;
     int vars = 0;
-    int clauses = 0;
     int count = 0;
     for(;;) {
         skipWhitespace(in);
@@ -159,7 +161,7 @@ void MaxSatSolver::parse(gzFile in_) {
             
             if(eagerMatch(in, "cnf")) {
                 vars = parseInt(in);
-                clauses = parseInt(in);
+                inClauses = parseInt(in);
                 if(weighted && *in != '\n') top = parseInt(in);
                 
                 nInVars(vars);
@@ -180,7 +182,7 @@ void MaxSatSolver::parse(gzFile in_) {
             else addWeightedClause(lits, weight);
         }
     }
-    if(count != clauses)
+    if(count != inClauses)
         cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl;
 }
 
@@ -209,7 +211,35 @@ long MaxSatSolver::setAssumptions(long limit) {
     return next;
 }
 
+void MaxSatSolver::preprocess() {
+    assert(clauses.size() < inClauses);
+    for(int i = 0; i < inClauses; i++) {
+        Clause& clause = ca[clauses[i]];
+        long min = LONG_MAX;
+        for(int j = 0; j < clause.size(); j++) {
+            if(weights[var(clause[j])] == 0) { min = LONG_MAX; break; }
+                
+            int pos = 0;
+            for(int k = 0; k < softLiterals.size(); k++, pos++) if(var(softLiterals[k]) == var(clause[j])) break;
+            
+            if(softLiterals[pos] == clause[j]) { min = LONG_MAX; break; }
+            
+            if(weights[var(clause[j])] < min) min = weights[var(clause[j])];
+        }
+        if(min == LONG_MAX) continue;
+        
+        conflict.clear();
+        for(int j = 0; j < clause.size(); j++) conflict.push(clause[j]);
+        trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << min);
+        lowerbound += min;
+        cout << "o " << lowerbound << endl;
+        (this->*corestrat)(min);
+    }
+
+}
+
 lbool MaxSatSolver::solve() {
+    inClauses = clauses.size();
     upperbound = LONG_MAX;
     cout << "o " << lowerbound << endl;
     detectLevels();
@@ -249,6 +279,10 @@ lbool MaxSatSolver::solveCurrentLevel() {
     levels.pop();
     weightOfPreviousLevel.pop();
     
+//    preprocess();
+    
+    numberOfCores = sizeOfCores = 0;
+
     lastSoftLiteral = disjcores == NO ? INT_MAX : nVars();
     firstLimit = LONG_MAX;
     
@@ -260,7 +294,7 @@ lbool MaxSatSolver::solveCurrentLevel() {
 
     if(ret == l_False) return l_False;
     assert(ret == l_True);
-    
+
     while(lastSoftLiteral < nVars()) {
         iteration++;
         lastSoftLiteral = disjcores == ALL ? nVars() : INT_MAX;
@@ -278,12 +312,14 @@ lbool MaxSatSolver::solve_() {
     long nextLimit;
     bool foundCore = false;
     
+    bool allowToSkip = true;
+    
     for(;;) {
         //aspino::shuffle(softLiterals);
         nextLimit = setAssumptions(limit);
         
         trace(maxsat, 2, "Solve with " << assumptions.size() << " assumptions. Current bounds: [" << lowerbound << ":" << upperbound << "]");
-        trace(maxsat, 10, "Assumptions: " << assumptions);
+        trace(maxsat, 20, "Assumptions: " << assumptions);
         
         if(assumptions.size() == 0 && upperbound != LONG_MAX) status = l_Undef;
         else PseudoBooleanSolver::solve();
@@ -316,7 +352,23 @@ lbool MaxSatSolver::solve_() {
         
         if(conflict.size() == 0) return l_False;
         
-        trim();
+        cancelUntil(0);
+//        trim();
+        minimize();
+        addClause(conflict);
+
+//        numberOfCores++;
+//        sizeOfCores += conflict.size();
+//        if(allowToSkip && conflict.size() > 3*sizeOfCores/numberOfCores/2) {
+//            trace(maxsat, 4, "This is a huge core of size " << conflict.size() << " (previous average is " << sizeOfCores/numberOfCores << ")! Skip it and shuffle soft literals");
+//            addClause(conflict);
+//            shuffle(softLiterals, random_seed);
+//            allowToSkip = false;
+//            continue;
+//        }
+//        allowToSkip = true;
+        
+        assert(conflict.size() > 0);
         
         trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << limit);
         lowerbound += limit;
@@ -342,7 +394,7 @@ void MaxSatSolver::updateUpperBound() {
 }
 
 void MaxSatSolver::trim() {
-    cancelUntil(0);
+    assert(decisionLevel() == 0);
     
     if(conflict.size() <= 1) return;
 
@@ -359,32 +411,67 @@ void MaxSatSolver::trim() {
     }while(assumptions.size() > conflict.size());
     
     assert(conflict.size() > 1);
+}
+
+void MaxSatSolver::minimize() {
+    assert(decisionLevel() == 0);
+    if(conflict.size() <= 1) return;
     
-//        if(conflict.size() > 1) {
-//            vec<Lit> copy;
-//            int n = conflict.size()-1;
-//            int iter = 0;
-//            do{
-//                iter++;
-//                conflict.moveTo(copy);
-//                assumptions.clear();
-//                for(int i = 0; i < copy.size(); i++) assumptions.push(~copy[i]);
-//                for(int i = 0; i < assumptions.size(); i++) {
-//                    int j = rand() % assumptions.size();
-//                    Lit tmp = assumptions[i];
-//                    assumptions[i] = assumptions[j];
-//                    assumptions[j] = tmp;
-//                }
-//                PseudoBooleanSolver::solve();
-//                assert(status == l_False);
-//                trace(maxsat, 2, "UNSAT! Conflict of size (after trim)  " << conflict.size());
-//                trace(maxsat, 10, "Conflict: " << conflict);
-//                cancelUntil(0);
-//                trace(maxsat, 2, "DIFF " << copy.size() << " - " << conflict.size() << " = " << - conflict.size() + copy.size() << " - iteration " << iter);
-//                if(iter == n) break;
-//                if(conflict.size() == 1) break;
-//            }while(true);//}while(copy.size() > conflict.size());
-//        }
+    static int64_t previousConflicts = 0;
+    int64_t budget = 100 * (conflicts - previousConflicts) / 100;
+    
+    static vec<lbool> required;
+    required.growTo(nVars(), l_False);
+    for(int i = 0; i < conflict.size(); i++) required[var(conflict[i])] = l_False;
+    
+    vec<Lit> core;
+    conflict.moveTo(core);
+
+    int requiredAssumptions = 0;
+    
+    for(;;) {
+        assumptions.shrink_(assumptions.size()-requiredAssumptions);
+        int nUnknown = 0;
+        for(int i = 0; i < core.size(); i++) {
+            if(required[var(core[i])] != l_Undef) continue;
+            assumptions.push(~core[i]);
+            nUnknown++; 
+        }
+        Lit last = lit_Undef;
+        for(int i = 0; i < core.size(); i++) {
+            if(required[var(core[i])] != l_False) continue;
+            if(last != lit_Undef) assumptions.push(~last);
+            last = core[i];
+        }
+        if(last == lit_Undef) break;
+        
+        trace(maxsat, 10, "Try to minimize with " << assumptions.size() << " assumptions (" << requiredAssumptions << " required, ie. " << 100*requiredAssumptions/(assumptions.size()+1) << "% of the core; " << nUnknown << " unknowns, ie. " << 100*nUnknown/(assumptions.size()+1) << "% of the core)");
+        setConfBudget(budget);
+        PseudoBooleanSolver::solve();
+        
+
+        if(status == l_False) {
+//            cancelUntil(0);
+//            addClause(conflict);
+            
+            conflict.moveTo(core);
+            
+            reverse(core);
+            
+            continue;
+        }
+        
+        required[var(last)] = status;
+        if(status == l_True) {
+            assumptions[requiredAssumptions++] = ~last;
+        }
+    }
+    
+    core.moveTo(conflict);
+    cancelUntil(0);
+    
+    budgetOff();
+    previousConflicts = conflicts;
 }
 
 void MaxSatSolver::corestrat_one(long limit) {
@@ -405,6 +492,30 @@ void MaxSatSolver::corestrat_one(long limit) {
         weights.push(limit);
         softLiterals.push(mkLit(nVars()-1));
         wc.lits.push(~mkLit(nVars()-1));
+        wc.coeffs.push(1);
+    }
+    
+    if(wc.size() > 1) addConstraint(wc);
+}
+
+void MaxSatSolver::corestrat_one_neg(long limit) {
+    trace(maxsat, 10, "Use algorithm one");
+    WeightConstraint wc;
+    wc.bound = conflict.size() - 1;
+    while(conflict.size() > 0) {
+        weights[var(conflict.last())] -= limit;
+        wc.lits.push(~conflict.last());
+        wc.coeffs.push(1);
+        conflict.pop();
+    }
+    assert(conflict.size() == 0);
+    for(int i = 0; i < wc.bound; i++) {
+        newVar();
+        if(i != 0) addClause(~softLiterals.last(), ~mkLit(nVars()-1));
+        setFrozen(nVars()-1, true);
+        weights.push(limit);
+        softLiterals.push(~mkLit(nVars()-1));
+        wc.lits.push(mkLit(nVars()-1));
         wc.coeffs.push(1);
     }
     

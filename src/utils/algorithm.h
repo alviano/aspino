@@ -23,9 +23,18 @@
 namespace aspino {
 
 template <class T>
-void shuffle(vec<T>& v) {
+void shuffle(vec<T>& v, double random_seed) {
     for(int i = 0; i < v.size(); i++) {
-        int j = rand() % v.size();
+        int j = Glucose::Solver::irand(random_seed, v.size());
+        T tmp = v[i];
+        v[i] = v[j];
+        v[j] = tmp;
+    }
+}
+
+template <class T>
+void reverse(vec<T>& v) {
+    for(int i = 0, j = v.size()-1; i < v.size() / 2; i++, j--) {
         T tmp = v[i];
         v[i] = v[j];
         v[j] = tmp;

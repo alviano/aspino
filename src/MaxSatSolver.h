@@ -57,6 +57,7 @@ private:
     void sameSoftVar(Lit soft, long weight);
     
     void detectLevels();
+    void preprocess();
     long setAssumptions(long limit);
     lbool solveCurrentLevel();
     lbool solve_();
@@ -64,9 +65,11 @@ private:
     void updateUpperBound();
     
     void trim();
+    void minimize();
     
     void (MaxSatSolver::*corestrat)(long);
     void corestrat_one(long limit);
+    void corestrat_one_neg(long limit);
     void corestrat_pmres(long limit);
     void corestrat_pmres_split_conj(long limit);
     void corestrat_pmreslog(long limit);
@@ -75,6 +78,10 @@ private:
     DisjunctCores disjcores;
     
     bool saturate;
+    
+    int numberOfCores;
+    int sizeOfCores;
+    vec<vec<Lit>*> cores;
 };
 
 
