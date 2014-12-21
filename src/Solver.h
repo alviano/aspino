@@ -31,18 +31,16 @@ using namespace std;
 
 namespace aspino {
 
-#define Minisat Glucose
-    
-using Minisat::lbool;
-using Minisat::Lit;
-using Minisat::Var;
-using Minisat::mkLit;
-using Minisat::vec;
-using Minisat::CRef;
-using Minisat::CRef_Undef;
-using Minisat::lit_Undef;
-using Minisat::ClauseAllocator;
-using Minisat::Clause;
+using Glucose::lbool;
+using Glucose::Lit;
+using Glucose::Var;
+using Glucose::mkLit;
+using Glucose::vec;
+using Glucose::CRef;
+using Glucose::CRef_Undef;
+using Glucose::lit_Undef;
+using Glucose::ClauseAllocator;
+using Glucose::Clause;
 
 ostream& operator<<(ostream& o, lbool l);
 ostream& operator<<(ostream& o, const Lit& l);

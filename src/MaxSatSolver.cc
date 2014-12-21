@@ -141,7 +141,7 @@ void MaxSatSolver::addWeightedClause(vec<Lit>& lits, long weight) {
 }
     
 void MaxSatSolver::parse(gzFile in_) {
-    Minisat::StreamBuffer in(in_);
+    Glucose::StreamBuffer in(in_);
 
     bool weighted = false;
     long top = -1;

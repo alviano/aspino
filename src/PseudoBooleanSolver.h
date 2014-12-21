@@ -87,7 +87,7 @@ protected:
     int nextToPropagate;
     
 private:
-    bool readConstraint(Minisat::StreamBuffer& in, WeightConstraint& wc);
+    bool readConstraint(Glucose::StreamBuffer& in, WeightConstraint& wc);
     static int gcd(int u, int v);
 };
 

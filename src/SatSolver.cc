@@ -29,7 +29,7 @@ using namespace std;
 namespace aspino {
 
 void SatSolver::parse(gzFile in_) {
-    Minisat::StreamBuffer in(in_);
+    Glucose::StreamBuffer in(in_);
 
     vec<Lit> lits;
     int vars = 0;
@@ -265,7 +265,7 @@ void SatSolver::copyModel() {
     // Extend & copy model:
     model.growTo(nVars());
     for (int i = 0; i < nVars(); i++) model[i] = value(i);
-    Minisat::SimpSolver::extendModel();
+    Glucose::SimpSolver::extendModel();
 }
 
 void SatSolver::printModel() const {

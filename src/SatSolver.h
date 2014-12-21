@@ -23,17 +23,17 @@
 
 namespace aspino {
 
-class SatSolver : public Solver, protected Minisat::SimpSolver {
+class SatSolver : public Solver, protected Glucose::SimpSolver {
 public:
     SatSolver() : inVars(0), status(l_Undef) {}
     virtual ~SatSolver() {}
     
-    virtual void interrupt() { Minisat::SimpSolver::interrupt(); }
+    virtual void interrupt() { Glucose::SimpSolver::interrupt(); }
     
     virtual void parse(gzFile in);
-    virtual bool simplify() { return Minisat::SimpSolver::simplify(); }
-    virtual bool eliminate(bool turn_off_elim) { return Minisat::SimpSolver::eliminate(turn_off_elim); }
-    virtual bool okay() const { return Minisat::SimpSolver::okay(); }
+    virtual bool simplify() { return Glucose::SimpSolver::simplify(); }
+    virtual bool eliminate(bool turn_off_elim) { return Glucose::SimpSolver::eliminate(turn_off_elim); }
+    virtual bool okay() const { return Glucose::SimpSolver::okay(); }
     virtual lbool solve();
     virtual lbool solve(int n);
     void printStatus() const;
@@ -47,9 +47,9 @@ public:
     inline Lit mainTrail(int idx) const { return trail[idx]; }
     inline int mainTrailLimit(int level) const { return trail_lim[level]; }
 
-    virtual inline void newVar() { Minisat::SimpSolver::newVar(); }
-    using Minisat::SimpSolver::nVars;
-    using Minisat::SimpSolver::addClause;
+    virtual inline void newVar() { Glucose::SimpSolver::newVar(); }
+    using Glucose::SimpSolver::nVars;
+    using Glucose::SimpSolver::addClause;
 
 protected:
     virtual inline CRef morePropagate() { return CRef_Undef; }
@@ -57,7 +57,7 @@ protected:
     
     void solve_();
     lbool search(int nof_conflicts);
-    inline void cancelUntil(int level) { Minisat::SimpSolver::cancelUntil(level); onCancel(); }
+    inline void cancelUntil(int level) { Glucose::SimpSolver::cancelUntil(level); onCancel(); }
     static double luby(double y, int x);
     void learnClauseFromModel();
     

@@ -30,7 +30,7 @@ namespace aspino {
 
 const CRef PseudoBooleanSolver::CRef_MoreConflict = CRef_Undef - 1;
     
-//void WeightConstraint::free(Minisat::ClauseAllocator& ca) {
+//void WeightConstraint::free(Glucose::ClauseAllocator& ca) {
 //    for(int i = 0; i < reasons.size(); i++)
 //        if(reasons[i] != CRef_Undef)
 //            ca.free(reasons[i]);
@@ -59,7 +59,7 @@ PseudoBooleanSolver::~PseudoBooleanSolver() {
     wconstraints.clear();
 }
 
-bool PseudoBooleanSolver::readConstraint(Minisat::StreamBuffer& in, WeightConstraint& wc) {
+bool PseudoBooleanSolver::readConstraint(Glucose::StreamBuffer& in, WeightConstraint& wc) {
     int var;
     bool ret = false;
     wc.clear();
@@ -92,7 +92,7 @@ bool PseudoBooleanSolver::readConstraint(Minisat::StreamBuffer& in, WeightConstr
 }
     
 void PseudoBooleanSolver::parse(gzFile in_) {
-    Minisat::StreamBuffer in(in_);
+    Glucose::StreamBuffer in(in_);
 
     WeightConstraint wc;
     for(;;) {
