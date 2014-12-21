@@ -42,8 +42,6 @@ static aspino::AbstractSolver* solver;
 
 static void SIGINT_interrupt(int) { solver->interrupt(); }
 
-static Glucose::IntOption opt_size_lbd_queue("SUK", "szLBDQueue", "The size of moving average for LBD (restarts)", 50, Glucose::IntRange(10, INT32_MAX));
-
 int main(int argc, char** argv)
 {
     signal(SIGINT, SIGINT_interrupt);
