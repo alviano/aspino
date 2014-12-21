@@ -29,8 +29,6 @@ public:
     inline WeightConstraint(WeightConstraint& wc) : bound(wc.bound), loosable(wc.loosable) { wc.lits.moveTo(lits); wc.coeffs.moveTo(coeffs); }
     ~WeightConstraint() { lits.clear(); coeffs.clear(); trail.clear(); }
     
-//    void free(ClauseAllocator& ca);
-    
     inline void clear() { lits.clear(); coeffs.clear(); bound = 0; }
     string toString() const;
     
@@ -44,6 +42,26 @@ public:
     int loosable;
     vec<int> trail;
     int first;
+};
+
+class CardinalityConstraint {
+    friend ostream& operator<<(ostream& out, const CardinalityConstraint& cc) { return out << cc.toString(); }
+public:
+    inline CardinalityConstraint() : bound(0) {}
+    inline CardinalityConstraint(CardinalityConstraint& cc) : bound(cc.bound), loosable(cc.loosable) { cc.lits.moveTo(lits); }
+    ~CardinalityConstraint() { lits.clear(); trail.clear(); }
+    
+    inline void clear() { lits.clear(); bound = 0; }
+    string toString() const;
+    
+    inline int size() const { return lits.size(); }
+    inline void shrink_(int n) { lits.shrink_(n); }
+    inline void pop() { lits.pop(); }
+    
+    vec<Lit> lits;
+    int bound;
+    int loosable;
+    vec<Lit> trail;
 };
     
 class PseudoBooleanSolver : public SatSolver {
@@ -60,27 +78,45 @@ public:
     bool addConstraint(WeightConstraint& wc);
     bool addEquality(WeightConstraint& wc);
     void attach(WeightConstraint& wc);
+
+    bool addConstraint(CardinalityConstraint& wc);
+    bool addEquality(CardinalityConstraint& wc);
+    void attach(CardinalityConstraint& wc);
     
 protected:
     virtual CRef morePropagate();
     CRef morePropagate(Lit lit);
     void restore(WeightConstraint& wc);
+    void restore(CardinalityConstraint& wc);
     CRef checkConflict(Lit lit, WeightConstraint& wc, int pos);
+    CRef checkConflict(Lit lit, CardinalityConstraint& wc);
     CRef checkInference(Lit lit, WeightConstraint& wc, int pos);
+    CRef checkInference(Lit lit, CardinalityConstraint& wc);
     
-    virtual bool moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC);
+    virtual bool moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    bool _moreReasonCC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    bool _moreReasonWC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
     virtual bool moreReason(Lit lit);
-    virtual bool moreConflict(vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC);
+    bool _moreReasonCC(Lit lit);
+    bool _moreReasonWC(Lit lit);
+    virtual bool moreConflict(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    bool _moreConflictCC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    bool _moreConflictWC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
     virtual void onCancel();
     
+    vec<CardinalityConstraint*> cconstraints;
+    vec< vec<CardinalityConstraint*> > cpropagators[2];
+    
     vec<WeightConstraint*> wconstraints;
-    vec< vec<WeightConstraint*> > propagators[2];
+    vec< vec<WeightConstraint*> > wpropagators[2];
     vec< vec<int> > positions[2];
 
     vec<WeightConstraint*> moreReasonWC;
+    vec<CardinalityConstraint*> moreReasonCC;
     vec<int> moreReasonTrailSize;
     vec<Var> moreReasonVars;
     WeightConstraint* moreConflictWC;
+    CardinalityConstraint* moreConflictCC;
     Lit moreConflictLit;
     
     vec<bool> propagated;

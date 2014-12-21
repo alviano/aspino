@@ -24,7 +24,7 @@
 
 using Glucose::Map;
 
-Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-neg|pmres|pmres-log|pmres-split-conj");
+Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-neg|one-wc|one-neg-wc|pmres|pmres-log|pmres-split-conj");
 Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
 
 Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
@@ -49,6 +49,8 @@ static long parseLong(B& in) {
 MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     if(strcmp(option_maxsat_strat, "one") == 0) corestrat = &MaxSatSolver::corestrat_one;
     else if(strcmp(option_maxsat_strat, "one-neg") == 0) corestrat = &MaxSatSolver::corestrat_one_neg;
+    else if(strcmp(option_maxsat_strat, "one-wc") == 0) corestrat = &MaxSatSolver::corestrat_one_wc;
+    else if(strcmp(option_maxsat_strat, "one-neg-wc") == 0) corestrat = &MaxSatSolver::corestrat_one_neg_wc;
     else if(strcmp(option_maxsat_strat, "pmres") == 0) corestrat = &MaxSatSolver::corestrat_pmres;
     else if(strcmp(option_maxsat_strat, "pmres-split-conj") == 0) corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
     else if(strcmp(option_maxsat_strat, "pmres-log") == 0) corestrat = &MaxSatSolver::corestrat_pmreslog;
@@ -529,8 +531,31 @@ void MaxSatSolver::minimize() {
 //    previousConflicts = conflicts;
 //}
 
+
 void MaxSatSolver::corestrat_one(long limit) {
     trace(maxsat, 10, "Use algorithm one");
+    CardinalityConstraint cc;
+    cc.bound = conflict.size() - 1;
+    while(conflict.size() > 0) {
+        weights[var(conflict.last())] -= limit;
+        cc.lits.push(~conflict.last());
+        conflict.pop();
+    }
+    assert(conflict.size() == 0);
+    for(int i = 0; i < cc.bound; i++) {
+        newVar();
+        if(i != 0) addClause(~softLiterals.last(), mkLit(nVars()-1));
+        setFrozen(nVars()-1, true);
+        weights.push(limit);
+        softLiterals.push(mkLit(nVars()-1));
+        cc.lits.push(~mkLit(nVars()-1));
+    }
+    
+    if(cc.size() > 1) addConstraint(cc);
+}
+
+void MaxSatSolver::corestrat_one_wc(long limit) {
+    trace(maxsat, 10, "Use algorithm one (wc)");
     WeightConstraint wc;
     wc.bound = conflict.size() - 1;
     while(conflict.size() > 0) {
@@ -554,7 +579,29 @@ void MaxSatSolver::corestrat_one(long limit) {
 }
 
 void MaxSatSolver::corestrat_one_neg(long limit) {
-    trace(maxsat, 10, "Use algorithm one");
+    trace(maxsat, 10, "Use algorithm one (neg)");
+    CardinalityConstraint cc;
+    cc.bound = conflict.size() - 1;
+    while(conflict.size() > 0) {
+        weights[var(conflict.last())] -= limit;
+        cc.lits.push(~conflict.last());
+        conflict.pop();
+    }
+    assert(conflict.size() == 0);
+    for(int i = 0; i < cc.bound; i++) {
+        newVar();
+        if(i != 0) addClause(~softLiterals.last(), ~mkLit(nVars()-1));
+        setFrozen(nVars()-1, true);
+        weights.push(limit);
+        softLiterals.push(~mkLit(nVars()-1));
+        cc.lits.push(mkLit(nVars()-1));
+    }
+    
+    if(cc.size() > 1) addConstraint(cc);
+}
+
+void MaxSatSolver::corestrat_one_neg_wc(long limit) {
+    trace(maxsat, 10, "Use algorithm one (neg; wc)");
     WeightConstraint wc;
     wc.bound = conflict.size() - 1;
     while(conflict.size() > 0) {

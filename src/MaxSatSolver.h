@@ -65,7 +65,9 @@ private:
     
     void (MaxSatSolver::*corestrat)(long);
     void corestrat_one(long limit);
+    void corestrat_one_wc(long limit);
     void corestrat_one_neg(long limit);
+    void corestrat_one_neg_wc(long limit);
     void corestrat_pmres(long limit);
     void corestrat_pmres_split_conj(long limit);
     void corestrat_pmreslog(long limit);

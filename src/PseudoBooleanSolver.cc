@@ -48,14 +48,28 @@ string WeightConstraint::toString() const {
     return ss.str();
 }
 
-PseudoBooleanSolver::~PseudoBooleanSolver() {
-    propagators[0].clear();
-    propagators[1].clear();
-    
-    for(int i = 0; i < wconstraints.size(); i++) {
-        //wconstraints[i]->free(ca);
-        delete  wconstraints[i];
+string CardinalityConstraint::toString() const {
+    stringstream ss;
+    if(lits.size() == 0)
+        ss << "0 ";
+    else {
+        for(int i = 0; i < lits.size(); i++)
+            ss << "+x" << lits[i] << " ";
     }
+    ss << ">= " << bound;
+    return ss.str();
+}
+
+PseudoBooleanSolver::~PseudoBooleanSolver() {
+    cpropagators[0].clear();
+    cpropagators[1].clear();
+    wpropagators[0].clear();
+    wpropagators[1].clear();
+    
+    for(int i = 0; i < cconstraints.size(); i++) delete  cconstraints[i];
+    cconstraints.clear();
+
+    for(int i = 0; i < wconstraints.size(); i++) delete  wconstraints[i];
     wconstraints.clear();
 }
 
@@ -244,9 +258,93 @@ void PseudoBooleanSolver::attach(WeightConstraint& wc) {
     wconstraints.push(ref);
     
     for(int i = 0; i < ref->size(); i++) {
-        propagators[1-sign(ref->lits[i])][var(ref->lits[i])].push(ref);
+        wpropagators[1-sign(ref->lits[i])][var(ref->lits[i])].push(ref);
         positions[1-sign(ref->lits[i])][var(ref->lits[i])].push(i);
     }
+}
+
+bool PseudoBooleanSolver::addConstraint(CardinalityConstraint& cc) {
+    assert(decisionLevel() == 0);
+    assert(cc.size() > 0);
+
+    trace(pbs, 2, "Processing constraint: " << cc);
+    
+    // remove literals at level zero, and transform negative coefficients
+    int j = 0;
+    for(int i = 0; i < cc.size(); i++) {
+        if(value(cc.lits[i]) != l_Undef) {
+            assert(level(var(cc.lits[i])) == 0);
+            if(value(cc.lits[i]) == l_True)
+                cc.bound--;
+            continue;
+        }
+        cc.lits[j++] = cc.lits[i];
+    }
+    cc.shrink_(cc.size()-j);
+    trace(pbs, 10, "After removing literals at level zero: " << cc);
+    
+    // trivially satisfied
+    if(cc.bound <= 0) {
+        trace(pbs, 4, "Trivially satisfied constraint: " << cc);
+        return true;
+    }
+    
+    // cannot be satisfied
+    if(cc.size() < cc.bound) {
+        trace(pbs, 4, "Unsatisfiable constraint: " << cc);
+        return ok = false;
+    }
+    
+    // find required literals
+    cc.loosable = cc.size() - cc.bound;
+    assert(cc.loosable >= 0);
+    while(cc.size() > 0) {
+        if(1 <= cc.loosable) break;
+        trace(pbs, 4, "Required literal " << cc.lits.last() << " in constraint " << cc);
+        if(!addClause(cc.lits.last())) return ok = false;
+        cc.bound--;
+        cc.pop();
+    }
+    if(cc.bound <= 0) {
+        trace(pbs, 4, "Trivially satisfied constraint: " << cc);
+        return true;
+    }
+    assert(cc.bound > 0);
+    //if(lits.size() == 0) return true;
+    assert(cc.size() > 1);
+    trace(pbs, 10, "After removing required literals: " << cc);
+    
+    // check if it is an at-least-one
+    if(cc.bound <= 1) {
+        trace(pbs, 4, "At-least-one constraint: " << cc);
+        return addClause(cc.lits);
+    }
+    
+    attach(cc);
+    
+    return true;
+}
+
+bool PseudoBooleanSolver::addEquality(CardinalityConstraint& cc) {
+    WeightConstraint wc;
+    wc.lits.growTo(cc.size());
+    wc.coeffs.growTo(cc.size());
+    for(int i = 0; i < cc.size(); i++) {
+        wc.lits[i] = cc.lits[i];
+        wc.coeffs[i] = -1;
+    }
+    wc.bound = -cc.bound;
+
+    return addConstraint(cc) && addConstraint(wc);
+}
+
+void PseudoBooleanSolver::attach(CardinalityConstraint& cc) {
+    trace(pbs, 4, "Adding constraint: " << cc);
+
+    CardinalityConstraint* ref = new CardinalityConstraint(cc);
+    cconstraints.push(ref);
+    
+    for(int i = 0; i < ref->size(); i++) cpropagators[1-sign(ref->lits[i])][var(ref->lits[i])].push(ref);
 }
 
 CRef PseudoBooleanSolver::morePropagate() {
@@ -261,9 +359,21 @@ CRef PseudoBooleanSolver::morePropagate() {
 
 CRef PseudoBooleanSolver::morePropagate(Lit lit) {
     trace(pbs, 20, "Propagating " << lit << "@" << level(var(lit)));
-    vec<WeightConstraint*>& p = propagators[sign(lit)][var(lit)];
+
+    vec<CardinalityConstraint*>& c = cpropagators[sign(lit)][var(lit)];
+    for(int i = 0; i < c.size(); i++) {
+        CardinalityConstraint& cc = *c[i];
+
+        trace(pbs, 6, "Processing " << cc);
+        restore(cc);
+        CRef ret = checkConflict(lit, cc);
+        if(ret != CRef_Undef) return ret;
+        ret = checkInference(lit, cc);
+        if(ret != CRef_Undef) return ret;
+    }
+
+    vec<WeightConstraint*>& p = wpropagators[sign(lit)][var(lit)];
     vec<int>& ppos = positions[sign(lit)][var(lit)];
-    
     for(int i = 0; i < p.size(); i++) {
         WeightConstraint& wc = *p[i];
         int pos = ppos[i];
@@ -286,7 +396,7 @@ void PseudoBooleanSolver::restore(WeightConstraint& wc) {
         if(wc.trail.size() == 0) break;
         int idx = wc.trail.last();
         if(propagated[var(wc.lits[idx])] && value(wc.lits[idx]) == l_False) break;
-        trace(pbs, 15, "Removing literal " << wc.lits[wc.trail.last()] << " from the trail: loosable was " << wc.loosable << " and now is " << wc.loosable + wc.coeffs[idx]);
+        trace(pbs, 15, "Removing literal " << wc.lits[idx] << " from the trail: loosable was " << wc.loosable << " and now is " << wc.loosable + wc.coeffs[idx]);
         wc.trail.pop();
         wc.loosable += wc.coeffs[idx];
         if(wc.first < idx) {
@@ -296,10 +406,32 @@ void PseudoBooleanSolver::restore(WeightConstraint& wc) {
     }
 }
 
+void PseudoBooleanSolver::restore(CardinalityConstraint& cc) {
+    trace(pbs, 10, "Restoring status of " << cc << " (loosable: " << cc.loosable << "; trail: " << cc.trail << ")");
+    for(;;) {
+        if(cc.trail.size() == 0) break;
+        Lit last = cc.trail.last();
+        if(propagated[var(last)] && value(last) == l_False) break;
+        trace(pbs, 15, "Removing literal " << last << " from the trail: loosable was " << cc.loosable << " and now is " << cc.loosable + 1);
+        cc.trail.pop();
+        cc.loosable++;
+    }
+}
+
 CRef PseudoBooleanSolver::checkConflict(Lit lit, WeightConstraint& wc, int pos) {
     if(wc.loosable < wc.coeffs[pos]) {
         trace(pbs, 4, "Conflict on " << wc);
         moreConflictWC = &wc;
+        moreConflictLit = ~lit;
+        return CRef_MoreConflict;
+    }
+    return CRef_Undef;
+}
+
+CRef PseudoBooleanSolver::checkConflict(Lit lit, CardinalityConstraint& cc) {
+    if(cc.loosable < 1) {
+        trace(pbs, 4, "Conflict on " << cc);
+        moreConflictCC = &cc;
         moreConflictLit = ~lit;
         return CRef_MoreConflict;
     }
@@ -334,19 +466,95 @@ CRef PseudoBooleanSolver::checkInference(Lit lit, WeightConstraint& wc, int pos)
     return CRef_Undef;
 }
 
+CRef PseudoBooleanSolver::checkInference(Lit lit, CardinalityConstraint& cc) {
+    trace(pbs, 10, "Adding literal " << ~lit << " to the trail of " << cc << ": loosable was " << cc.loosable << " and now is " << cc.loosable - 1);
+    cc.trail.push(~lit);
+    cc.loosable--;
+    assert(cc.loosable >= 0);
+    
+    if(cc.loosable == 0) {
+        for(int i = 0; i < cc.size(); i++) {
+            Lit clit = cc.lits[i];
+            if(value(clit) == l_True) continue;
+            if(value(clit) == l_Undef) {
+                trace(pbs, 20, "Inferring " << clit << "@" << decisionLevel() << " from " << cc);
+                assert(moreReasonCC[var(clit)] == NULL);
+                moreReasonCC[var(clit)] = &cc;
+                moreReasonTrailSize[var(clit)] = cc.trail.size();
+                moreReasonVars.push(var(clit));
+                uncheckedEnqueue(clit);
+            }
+            else if(clit != ~lit && !propagated[var(clit)]) {
+                trace(pbs, 4, "Conflict on literal " << clit << " in " << cc);
+                moreConflictCC = &cc;
+                moreConflictLit = clit;
+                return CRef_MoreConflict;
+            }
+        }
+    }
+    
+    return CRef_Undef;
+}
+
 void PseudoBooleanSolver::newVar() {
     SatSolver::newVar();
-    propagators[0].push();
-    propagators[1].push();
+    cpropagators[0].push();
+    cpropagators[1].push();
+    wpropagators[0].push();
+    wpropagators[1].push();
     positions[0].push();
     positions[1].push();
     moreReasonWC.push(NULL);
+    moreReasonCC.push(NULL);
     moreReasonTrailSize.push();
     propagated.push(false);
 }
 
-bool PseudoBooleanSolver::moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC) {
-    if(moreReasonWC[var(lit)] == NULL) return false;
+bool PseudoBooleanSolver::moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+    if(moreReasonCC[var(lit)] != NULL) return _moreReasonCC(lit, out_learnt, selectors, pathC);
+    if(moreReasonWC[var(lit)] != NULL) return _moreReasonWC(lit, out_learnt, selectors, pathC);
+    return false;
+}
+
+bool PseudoBooleanSolver::_moreReasonCC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+    assert(decisionLevel() != 0);
+    assert(reason(var(lit)) == CRef_Undef);
+    CardinalityConstraint& cc = *moreReasonCC[var(lit)];
+    int trailSize = moreReasonTrailSize[var(lit)];
+    assert(trailSize >= 0);
+    assert(trailSize <= cc.trail.size());
+    while(--trailSize >= 0) {
+        Lit q = cc.trail[trailSize];
+        assert(value(q) == l_False);
+        assert(level(var(q)) <= level(var(lit)));
+        
+        if(seen[var(q)]) continue;
+        if(level(var(q)) == 0) continue;
+        
+        if(!isSelector(var(q)))
+            varBumpActivity(var(q));
+        
+        seen[var(q)] = 1;
+        
+        if(level(var(q)) >= decisionLevel()) {
+            pathC++;
+            // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+            if(!isSelector(var(q)) && (reason(var(q)) != CRef_Undef) && ca[reason(var(q))].learnt())
+                lastDecisionLevel.push(q);
+        }
+        else {
+            if(isSelector(var(q))) {
+                assert(value(q) == l_False);
+                selectors.push(q);
+            }
+            else 
+                out_learnt.push(q);
+        }
+    }
+    return true;
+}
+
+bool PseudoBooleanSolver::_moreReasonWC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
     assert(decisionLevel() != 0);
     assert(reason(var(lit)) == CRef_Undef);
     WeightConstraint& wc = *moreReasonWC[var(lit)];
@@ -385,7 +593,29 @@ bool PseudoBooleanSolver::moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>&sel
 }
 
 bool PseudoBooleanSolver::moreReason(Lit lit) {
-    if(moreReasonWC[var(lit)] == NULL) return false;
+    if(moreReasonCC[var(lit)] != NULL) return _moreReasonCC(lit);
+    if(moreReasonWC[var(lit)] != NULL) return _moreReasonWC(lit);
+    return false;
+}
+
+bool PseudoBooleanSolver::_moreReasonCC(Lit lit) {
+    assert(decisionLevel() != 0);
+    assert(reason(var(lit)) == CRef_Undef);
+    CardinalityConstraint& cc = *moreReasonCC[var(lit)];
+    int trailSize = moreReasonTrailSize[var(lit)];
+    assert(trailSize >= 0);
+    assert(trailSize <= cc.trail.size());
+    while(--trailSize >= 0) {
+        Lit l = cc.trail[trailSize];
+        assert(value(l) == l_False);
+        assert(level(var(l)) <= level(var(lit)));
+        if(level(var(l)) == 0) continue;
+        seen[var(l)] = 1;
+    }
+    return true;
+}
+
+bool PseudoBooleanSolver::_moreReasonWC(Lit lit) {
     assert(decisionLevel() != 0);
     assert(reason(var(lit)) == CRef_Undef);
     WeightConstraint& wc = *moreReasonWC[var(lit)];
@@ -402,8 +632,60 @@ bool PseudoBooleanSolver::moreReason(Lit lit) {
     return true;
 }
 
-bool PseudoBooleanSolver::moreConflict(vec<Lit>& out_learnt, vec<Lit>&selectors, int& pathC) {
-    if(moreConflictWC == NULL) return false;
+bool PseudoBooleanSolver::moreConflict(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+    if(moreConflictCC != NULL) return _moreConflictCC(out_learnt, selectors, pathC);
+    if(moreConflictWC != NULL) return _moreConflictWC(out_learnt, selectors, pathC);
+    return false;
+}
+    
+bool PseudoBooleanSolver::_moreConflictCC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+    assert(decisionLevel() != 0);
+    
+    if(!seen[var(moreConflictLit)] && level(var(moreConflictLit)) > 0) {
+        if(!isSelector(var(moreConflictLit))) varBumpActivity(var(moreConflictLit));
+        seen[var(moreConflictLit)] = 1;
+        assert(level(var(moreConflictLit)) == decisionLevel());
+        pathC++;
+        // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+        if(!isSelector(var(moreConflictLit)) && (reason(var(moreConflictLit)) != CRef_Undef) && ca[reason(var(moreConflictLit))].learnt())
+            lastDecisionLevel.push(moreConflictLit);
+    }
+    
+    CardinalityConstraint& cc = *moreConflictCC;
+    moreConflictCC = NULL;
+    int trailSize = cc.trail.size();
+    assert(trailSize >= 0);
+    while(--trailSize >= 0) {
+        Lit q = cc.trail[trailSize];
+        assert(value(q) == l_False);
+        
+        if(seen[var(q)]) continue;
+        if(level(var(q)) == 0) continue;
+        
+        if(!isSelector(var(q)))
+            varBumpActivity(var(q));
+        
+        seen[var(q)] = 1;
+        
+        if(level(var(q)) >= decisionLevel()) {
+            pathC++;
+            // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+            if(!isSelector(var(q)) && (reason(var(q)) != CRef_Undef) && ca[reason(var(q))].learnt())
+                lastDecisionLevel.push(q);
+        }
+        else {
+            if(isSelector(var(q))) {
+                assert(value(q) == l_False);
+                selectors.push(q);
+            }
+            else 
+                out_learnt.push(q);
+        }
+    }
+    return true;
+}
+
+bool PseudoBooleanSolver::_moreConflictWC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
     assert(decisionLevel() != 0);
     
     if(!seen[var(moreConflictLit)] && level(var(moreConflictLit)) > 0) {
@@ -462,6 +744,7 @@ void PseudoBooleanSolver::onCancel() {
         if(level(v) <= decisionLevel()) break;
         moreReasonVars.pop();
         moreReasonWC[v] = NULL;
+        moreReasonCC[v] = NULL;
         moreReasonTrailSize[v] = -1;
     }
 }
