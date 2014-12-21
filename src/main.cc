@@ -16,7 +16,7 @@
  */
 
 
-#include "Solver.h"
+#include "AbstractSolver.h"
 #include "SatSolver.h"
 #include "PseudoBooleanSolver.h"
 #include "MaxSatSolver.h"
@@ -47,7 +47,7 @@ DEFINE_int32(n, 1, "Number of desired solutions. Non-positive integers are inter
 extern bool validate_maxsat_strat(const char* name, const string& value);
 extern bool validate_maxsat_disjcores(const char* name, const string& value);
 
-static aspino::Solver* solver;
+static aspino::AbstractSolver* solver;
 
 static void SIGINT_interrupt(int) { solver->interrupt(); }
 

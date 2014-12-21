@@ -18,12 +18,12 @@
 #ifndef __SatSolver_h__
 #define __SatSolver_h__
 
-#include "Solver.h"
+#include "AbstractSolver.h"
 #include "simp/SimpSolver.h"
 
 namespace aspino {
 
-class SatSolver : public Solver, protected Glucose::SimpSolver {
+class SatSolver : public AbstractSolver, protected Glucose::SimpSolver {
 public:
     SatSolver() : inVars(0), status(l_Undef) {}
     virtual ~SatSolver() {}

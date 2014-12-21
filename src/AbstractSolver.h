@@ -15,8 +15,8 @@
  *
  */
 
-#ifndef __Solver_h__
-#define __Solver_h__
+#ifndef __AbstractSolver_h__
+#define __AbstractSolver_h__
 
 #include <zlib.h>
 #include <ostream>
@@ -51,10 +51,10 @@ template <class T> ostream& operator<<(ostream& o, const vec<T>& v) {
     return o << "]";
 }
 
-class Solver {
+class AbstractSolver {
 public:
-    Solver() {}
-    virtual ~Solver() {}
+    AbstractSolver() {}
+    virtual ~AbstractSolver() {}
     
     virtual void interrupt() = 0;
     virtual void exit(int code) { _exit(code); }
@@ -67,6 +67,6 @@ public:
     virtual lbool solve(int n) = 0;
 };
     
-} // namespace miniasp
+} // namespace aspino
 
 #endif

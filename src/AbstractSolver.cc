@@ -15,7 +15,7 @@
  *
  */
 
-#include "Solver.h"
+#include "AbstractSolver.h"
 
 namespace aspino {
 
