@@ -1,0 +1,95 @@
+diff -rupN glucose-syrup.patch.6/core/Solver.h glucose-syrup.patch.7/core/Solver.h
+--- glucose-syrup.patch.6/core/Solver.h	2014-12-16 19:34:11.488110745 +0100
++++ glucose-syrup.patch.7/core/Solver.h	2014-12-21 18:37:19.210908731 +0100
+@@ -402,6 +402,7 @@ protected:
+     bool     withinBudget     ()      const;
+     inline bool isSelector(Var v) {return (incremental && v>nbVarsInitialFormula);}
+ 
++public:
+     // Static helpers:
+     //
+ 
+diff -rupN glucose-syrup.patch.6/utils/Options.h glucose-syrup.patch.7/utils/Options.h
+--- glucose-syrup.patch.6/utils/Options.h	2014-12-16 19:34:11.488110745 +0100
++++ glucose-syrup.patch.7/utils/Options.h	2014-12-21 18:37:19.214908802 +0100
+@@ -25,6 +25,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR
+ #include <math.h>
+ #include <string.h>
+ 
++#include <string>
++#include <vector>
++
+ #include "mtl/IntTypes.h"
+ #include "mtl/Vec.h"
+ #include "utils/ParseUtils.h"
+@@ -333,6 +336,60 @@ class StringOption : public Option
+     }    
+ };
+ 
++//==================================================================================================
++// Enum option:
++
++
++class EnumOption : public Option
++{
++    int value;
++    std::vector<std::string> enumSet;
++ public:
++    EnumOption(const char* c, const char* n, const char* d, const char* enumSet_, int def = 0)
++        : Option(n, d, c, "<enum>"), value(def) {
++        for(int i = 0, from = 0;; i++) {
++            if(enumSet_[i] == '|' || enumSet_[i] == '\0') {
++                enumSet.push_back(std::string(enumSet_, from, i-from));
++                from = i+1;
++            }
++            if(enumSet_[i] == '\0') break;
++        }
++        assert(static_cast<unsigned>(value) < enumSet.size());
++    }
++
++    operator const char* (void) const { return enumSet[value].c_str(); }
++//    operator      Enum& (void)           { return value; }
++    EnumOption& operator=(const char* x) { 
++        for(unsigned i = 0; i < enumSet.size(); i++)
++            if(enumSet[i] == x) { value = i; break; }
++        return *this; 
++        }
++
++    virtual bool parse(const char* str){
++        const char* span = str; 
++
++        if (!match(span, "-") || !match(span, name) || !match(span, "="))
++            return false;
++        
++        value = -1;
++        *this = span;
++        return value != -1;
++    }
++
++    virtual void help (bool verbose = false){
++        fprintf(stderr, "  -%-10s = %8s {", name, type_name);
++        for(unsigned i = 0; i < enumSet.size(); i++) {
++            if(i != 0) fprintf(stderr, ", ");
++            fprintf(stderr, "%s", enumSet[i].c_str());
++        }
++        fprintf(stderr, "} (default: %s)\n", enumSet[value].c_str());
++        
++        if (verbose){
++            fprintf(stderr, "\n        %s\n", description);
++            fprintf(stderr, "\n");
++        }
++    }
++};
+ 
+ //==================================================================================================
+ // Bool option:
+@@ -368,9 +425,6 @@ class BoolOption : public Option
+ 
+         fprintf(stderr, "  -%s, -no-%s", name, name);
+ 
+-        for (uint32_t i = 0; i < 32 - strlen(name)*2; i++)
+-            fprintf(stderr, " ");
+-
+         fprintf(stderr, " ");
+         fprintf(stderr, "(default: %s)\n", value ? "on" : "off");
+         if (verbose){
