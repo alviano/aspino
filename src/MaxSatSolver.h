@@ -69,6 +69,7 @@ private:
     void corestrat_one_neg(long limit);
     void corestrat_one_neg_wc(long limit);
     void corestrat_pmres(long limit);
+    void corestrat_pmres_reverse(long limit);
     void corestrat_pmres_split_conj(long limit);
     void corestrat_pmreslog(long limit);
 

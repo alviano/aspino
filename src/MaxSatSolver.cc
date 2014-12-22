@@ -24,7 +24,7 @@
 
 using Glucose::Map;
 
-Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-neg|one-wc|one-neg-wc|pmres|pmres-log|pmres-split-conj");
+Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-neg|one-wc|one-neg-wc|pmres|pmres-reverse|pmres-log|pmres-split-conj");
 Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
 
 Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
@@ -52,6 +52,7 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     else if(strcmp(option_maxsat_strat, "one-wc") == 0) corestrat = &MaxSatSolver::corestrat_one_wc;
     else if(strcmp(option_maxsat_strat, "one-neg-wc") == 0) corestrat = &MaxSatSolver::corestrat_one_neg_wc;
     else if(strcmp(option_maxsat_strat, "pmres") == 0) corestrat = &MaxSatSolver::corestrat_pmres;
+    else if(strcmp(option_maxsat_strat, "pmres-reverse") == 0) corestrat = &MaxSatSolver::corestrat_pmres;
     else if(strcmp(option_maxsat_strat, "pmres-split-conj") == 0) corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
     else if(strcmp(option_maxsat_strat, "pmres-log") == 0) corestrat = &MaxSatSolver::corestrat_pmreslog;
     else assert(0);
@@ -341,11 +342,11 @@ lbool MaxSatSolver::solve_() {
         if(conflict.size() == 0) return l_False;
         
         cancelUntil(0);
-//        trim();
+        trim();
 //        int oldSize;
 //        do{
 //            oldSize = conflict.size();
-            minimize();
+//            minimize();
 //        }while(oldSize != conflict.size());
         addClause(conflict);
 
@@ -639,6 +640,52 @@ void MaxSatSolver::corestrat_pmres(long limit) {
             setFrozen(nVars()-1, true);
             weights.push(limit);
             softLiterals.push(mkLit(nVars()-1));
+            lits.push(prec);
+            lits.push(~conflict.last());
+            lits.push(mkLit(nVars()-1, true));
+            addClause(lits);
+            lits.clear();
+            addClause(~prec, mkLit(nVars()-1));
+            addClause(conflict.last(), mkLit(nVars()-1));
+            
+            if(conflict.size() == 0) break;
+
+            // conjunction
+            newVar();
+            weights.push(0);
+            addClause(prec, mkLit(nVars()-1, true));
+            addClause(~conflict.last(), mkLit(nVars()-1, true));
+            lits.push(~prec);
+            lits.push(conflict.last());
+            lits.push(mkLit(nVars()-1));
+            addClause(lits);
+            lits.clear();
+            
+            prec = mkLit(nVars()-1);
+        }
+        
+        conflict.pop();
+    }
+    assert(conflict.size() == 0);
+}
+
+void MaxSatSolver::corestrat_pmres_reverse(long limit) {
+    trace(maxsat, 10, "Use algorithm pmres (reverse)");
+
+    Lit prec = lit_Undef;
+    softLiterals.growTo(softLiterals.size() + conflict.size() - 1);
+    int pos = softLiterals.size();
+    vec<Lit> lits;
+    while(conflict.size() > 0) {
+        weights[var(conflict.last())] -= limit;
+        
+        if(prec == lit_Undef) prec = ~conflict.last();
+        else {
+            // disjunction
+            newVar();
+            setFrozen(nVars()-1, true);
+            weights.push(limit);
+            softLiterals[--pos] = mkLit(nVars()-1);
             lits.push(prec);
             lits.push(~conflict.last());
             lits.push(mkLit(nVars()-1, true));
