@@ -55,8 +55,8 @@ private:
     void detectLevels();
     void preprocess();
     long setAssumptions(long limit);
-    lbool solveCurrentLevel();
-    lbool solve_();
+    void solveCurrentLevel();
+    void solve_();
     
     void updateUpperBound();
     
@@ -68,6 +68,7 @@ private:
     void corestrat_one_wc(long limit);
     void corestrat_one_neg(long limit);
     void corestrat_one_neg_wc(long limit);
+    void corestrat_one_pmres(long limit);
     void corestrat_pmres(long limit);
     void corestrat_pmres_reverse(long limit);
     void corestrat_pmres_split_conj(long limit);
