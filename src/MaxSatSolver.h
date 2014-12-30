@@ -31,30 +31,30 @@ public:
     
     virtual void parse(gzFile in);
     
-    void addWeightedClause(vec<Lit>& lits, long weight);
+    void addWeightedClause(vec<Lit>& lits, int64_t weight);
     
     virtual lbool solve();
     virtual lbool solve(int) { return solve(); }
     
     
 private:
-    long upperbound;
-    long lowerbound;
+    int64_t upperbound;
+    int64_t lowerbound;
     
     vec<Lit> softLiterals;
-    vec<long> weights;
+    vec<int64_t> weights;
     
     vec<vec<Lit>*> levels;
-    vec<long> weightOfPreviousLevel;
+    vec<int64_t> weightOfPreviousLevel;
     
     int lastSoftLiteral;
-    long firstLimit;
+    int64_t firstLimit;
     
-    void sameSoftVar(Lit soft, long weight);
+    void sameSoftVar(Lit soft, int64_t weight);
     
     void detectLevels();
     void preprocess();
-    long setAssumptions(long limit);
+    int64_t setAssumptions(int64_t limit);
     void solveCurrentLevel();
     void solve_();
     
@@ -63,18 +63,18 @@ private:
     void trim();
     void minimize();
     
-    void (MaxSatSolver::*corestrat)(long);
-    void corestrat_one(long limit);
-    void corestrat_one_2(long limit);
-    void corestrat_one_wc(long limit);
-    void corestrat_one_neg(long limit);
-    void corestrat_one_neg_wc(long limit);
-    void corestrat_one_pmres(long limit);
-    void corestrat_one_pmres_2(long limit);
-    void corestrat_pmres(long limit);
-    void corestrat_pmres_reverse(long limit);
-    void corestrat_pmres_split_conj(long limit);
-    void corestrat_pmreslog(long limit);
+    void (MaxSatSolver::*corestrat)(int64_t);
+    void corestrat_one(int64_t limit);
+    void corestrat_one_2(int64_t limit);
+    void corestrat_one_wc(int64_t limit);
+    void corestrat_one_neg(int64_t limit);
+    void corestrat_one_neg_wc(int64_t limit);
+    void corestrat_one_pmres(int64_t limit);
+    void corestrat_one_pmres_2(int64_t limit);
+    void corestrat_pmres(int64_t limit);
+    void corestrat_pmres_reverse(int64_t limit);
+    void corestrat_pmres_split_conj(int64_t limit);
+    void corestrat_pmreslog(int64_t limit);
 
     enum DisjunctCores {NO = 0, PRE, ALL};
     DisjunctCores disjcores;

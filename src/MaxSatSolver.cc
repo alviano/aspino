@@ -35,8 +35,8 @@ Glucose::IntOption option_maxsat_tag("MAXSAT", "maxsat-tag", "Parameter for maxs
 namespace aspino {
 
 template<class B>
-static long parseLong(B& in) {
-    long    val = 0;
+static int64_t parseLong(B& in) {
+    int64_t    val = 0;
     bool    neg = false;
     skipWhitespace(in);
     if      (*in == '-') neg = true, ++in;
@@ -74,7 +74,7 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0) {
 MaxSatSolver::~MaxSatSolver() {
 }
 
-void MaxSatSolver::sameSoftVar(Lit soft, long weight) {
+void MaxSatSolver::sameSoftVar(Lit soft, int64_t weight) {
     assert(weights[var(soft)] != 0);
     assert(decisionLevel() == 0);
     int pos = 0;
@@ -107,7 +107,7 @@ void MaxSatSolver::sameSoftVar(Lit soft, long weight) {
     }
 }
 
-void MaxSatSolver::addWeightedClause(vec<Lit>& lits, long weight) {
+void MaxSatSolver::addWeightedClause(vec<Lit>& lits, int64_t weight) {
     Lit soft;
     if(lits.size() == 1)
         soft = lits[0];
@@ -135,8 +135,8 @@ void MaxSatSolver::parse(gzFile in_) {
     Glucose::StreamBuffer in(in_);
 
     bool weighted = false;
-    long top = -1;
-    long weight = 1;
+    int64_t top = -1;
+    int64_t weight = 1;
     
     vec<Lit> lits;
     int vars = 0;
@@ -177,13 +177,13 @@ void MaxSatSolver::parse(gzFile in_) {
         cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl;
 }
 
-long MaxSatSolver::setAssumptions(long limit) {
+int64_t MaxSatSolver::setAssumptions(int64_t limit) {
     assumptions.clear();
     cancelUntil(0);
-    long next = limit;
+    int64_t next = limit;
     int j = 0;
     for(int i = 0; i < softLiterals.size(); i++) {
-        long w = weights[var(softLiterals[i])];
+        int64_t w = weights[var(softLiterals[i])];
         if(w == 0) continue;
         if(w + lowerbound > upperbound) {
             addClause(softLiterals[i]);
@@ -206,7 +206,7 @@ void MaxSatSolver::preprocess() {
     assert(clauses.size() < inClauses);
     for(int i = 0; i < inClauses; i++) {
         Clause& clause = ca[clauses[i]];
-        long min = LONG_MAX;
+        int64_t min = LONG_MAX;
         for(int j = 0; j < clause.size(); j++) {
             if(weights[var(clause[j])] == 0) { min = LONG_MAX; break; }
                 
@@ -296,8 +296,8 @@ void MaxSatSolver::solveCurrentLevel() {
 }
 
 void MaxSatSolver::solve_() {
-    long limit = firstLimit != LONG_MAX ? firstLimit : setAssumptions(LONG_MAX);
-    long nextLimit;
+    int64_t limit = firstLimit != LONG_MAX ? firstLimit : setAssumptions(LONG_MAX);
+    int64_t nextLimit;
     bool foundCore = false;
     
 //    bool allowToSkip = true;
@@ -372,7 +372,7 @@ void MaxSatSolver::solve_() {
 
 void MaxSatSolver::updateUpperBound() {
     assert(weightOfPreviousLevel.size() > 0);
-    long newupperbound = lowerbound;
+    int64_t newupperbound = lowerbound;
     for(int i = 0; i < softLiterals.size(); i++)
         if(value(softLiterals[i]) == l_False) newupperbound += weights[var(softLiterals[i])];
     for(int i = 0; i < levels.size(); i++) {
@@ -533,7 +533,7 @@ void MaxSatSolver::minimize() {
 //}
 
 
-void MaxSatSolver::corestrat_one(long limit) {
+void MaxSatSolver::corestrat_one(int64_t limit) {
     trace(maxsat, 10, "Use algorithm one");
     CardinalityConstraint cc;
     cc.bound = conflict.size() - 1;
@@ -556,7 +556,7 @@ void MaxSatSolver::corestrat_one(long limit) {
     addConstraint(cc);
 }
 
-void MaxSatSolver::corestrat_one_2(long limit) {
+void MaxSatSolver::corestrat_one_2(int64_t limit) {
     trace(maxsat, 10, "Use algorithm one-2");
     CardinalityConstraint cc;
     cc.bound = conflict.size() - 1;
@@ -579,7 +579,7 @@ void MaxSatSolver::corestrat_one_2(long limit) {
     addEquality(cc);
 }
 
-void MaxSatSolver::corestrat_one_wc(long limit) {
+void MaxSatSolver::corestrat_one_wc(int64_t limit) {
     trace(maxsat, 10, "Use algorithm one (wc)");
     WeightConstraint wc;
     wc.bound = conflict.size() - 1;
@@ -604,7 +604,7 @@ void MaxSatSolver::corestrat_one_wc(long limit) {
     addConstraint(wc);
 }
 
-void MaxSatSolver::corestrat_one_neg(long limit) {
+void MaxSatSolver::corestrat_one_neg(int64_t limit) {
     trace(maxsat, 10, "Use algorithm one (neg)");
     CardinalityConstraint cc;
     cc.bound = conflict.size() - 1;
@@ -627,7 +627,7 @@ void MaxSatSolver::corestrat_one_neg(long limit) {
     addConstraint(cc);
 }
 
-void MaxSatSolver::corestrat_one_neg_wc(long limit) {
+void MaxSatSolver::corestrat_one_neg_wc(int64_t limit) {
     trace(maxsat, 10, "Use algorithm one (neg; wc)");
     WeightConstraint wc;
     wc.bound = conflict.size() - 1;
@@ -652,7 +652,7 @@ void MaxSatSolver::corestrat_one_neg_wc(long limit) {
     addConstraint(wc);
 }
 
-void MaxSatSolver::corestrat_one_pmres(long limit) {
+void MaxSatSolver::corestrat_one_pmres(int64_t limit) {
     trace(maxsat, 10, "Use algorithm one-pmres");
     
     const int N = option_maxsat_tag;
@@ -699,7 +699,7 @@ void MaxSatSolver::corestrat_one_pmres(long limit) {
     assert(conflict.size() == 0);
 }
 
-void MaxSatSolver::corestrat_one_pmres_2(long limit) {
+void MaxSatSolver::corestrat_one_pmres_2(int64_t limit) {
     trace(maxsat, 10, "Use algorithm one-pmres-2");
     
     const int N = option_maxsat_tag;
@@ -748,7 +748,7 @@ void MaxSatSolver::corestrat_one_pmres_2(long limit) {
     assert(conflict.size() == 0);
 }
 
-void MaxSatSolver::corestrat_pmres(long limit) {
+void MaxSatSolver::corestrat_pmres(int64_t limit) {
     trace(maxsat, 10, "Use algorithm pmres");
 
     Lit prec = lit_Undef;
@@ -792,7 +792,7 @@ void MaxSatSolver::corestrat_pmres(long limit) {
     assert(conflict.size() == 0);
 }
 
-void MaxSatSolver::corestrat_pmres_reverse(long limit) {
+void MaxSatSolver::corestrat_pmres_reverse(int64_t limit) {
     trace(maxsat, 10, "Use algorithm pmres (reverse)");
 
     Lit prec = lit_Undef;
@@ -838,7 +838,7 @@ void MaxSatSolver::corestrat_pmres_reverse(long limit) {
     assert(conflict.size() == 0);
 }
 
-void MaxSatSolver::corestrat_pmres_split_conj(long limit) {
+void MaxSatSolver::corestrat_pmres_split_conj(int64_t limit) {
     trace(maxsat, 10, "Use algorithm pmres_split_conj");
 
     vec<Lit> lits;
@@ -868,7 +868,7 @@ void MaxSatSolver::corestrat_pmres_split_conj(long limit) {
     }
 }
 
-void MaxSatSolver::corestrat_pmreslog(long limit) {
+void MaxSatSolver::corestrat_pmreslog(int64_t limit) {
     trace(maxsat, 10, "Use algorithm pmreslog");
 
     vec<Lit> lits;
@@ -917,11 +917,11 @@ void MaxSatSolver::corestrat_pmreslog(long limit) {
 }
 
 void MaxSatSolver::detectLevels() {
-    vec<long> allWeights;
-    Map<long, vec<Lit>*> wMap;
+    vec<int64_t> allWeights;
+    Map<int64_t, vec<Lit>*> wMap;
     for(int i = 0; i < softLiterals.size(); i++) {
         Lit lit = softLiterals[i];
-        long w = weights[var(lit)];
+        int64_t w = weights[var(lit)];
         if(!wMap.has(w)) { wMap.insert(w, new vec<Lit>()); allWeights.push(w); }
         wMap[w]->push(lit);
     }
@@ -931,7 +931,7 @@ void MaxSatSolver::detectLevels() {
         int newn = 0;
         for(int i = 1; i < n; i++) {
             if(allWeights[i-1] > allWeights[i]) {
-                long tmp = allWeights[i-1];
+                int64_t tmp = allWeights[i-1];
                 allWeights[i-1] = allWeights[i];
                 allWeights[i] = tmp;
                 newn = i;
@@ -942,9 +942,9 @@ void MaxSatSolver::detectLevels() {
     
     assert(levels.size() == 0);
     
-    long cumulative = 0;
+    int64_t cumulative = 0;
     for(int i = 0; i < allWeights.size(); i++) {
-        long w = allWeights[i];
+        int64_t w = allWeights[i];
         if(w > cumulative) { levels.push(new vec<Lit>()); weightOfPreviousLevel.push(cumulative); }
         vec<Lit>& v = *wMap[w];
         for(int j = 0; j < v.size(); j++) levels.last()->push(v[j]);

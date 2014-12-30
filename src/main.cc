@@ -30,7 +30,9 @@
 
 #include <string>
 #include <iostream>
+#if defined(__linux__)
 #include <fpu_control.h>
+#endif
 
 using namespace aspino;
 using namespace std;
