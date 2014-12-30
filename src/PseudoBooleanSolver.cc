@@ -326,16 +326,11 @@ bool PseudoBooleanSolver::addConstraint(CardinalityConstraint& cc) {
 }
 
 bool PseudoBooleanSolver::addEquality(CardinalityConstraint& cc) {
-    WeightConstraint wc;
-    wc.lits.growTo(cc.size());
-    wc.coeffs.growTo(cc.size());
-    for(int i = 0; i < cc.size(); i++) {
-        wc.lits[i] = cc.lits[i];
-        wc.coeffs[i] = -1;
-    }
-    wc.bound = -cc.bound;
-
-    return addConstraint(cc) && addConstraint(wc);
+    CardinalityConstraint cc2;
+    cc2.lits.growTo(cc.size());
+    for(int i = 0; i < cc.size(); i++) cc2.lits[i] = ~cc.lits[i];
+    cc2.bound = -cc.bound + cc2.size();
+    return addConstraint(cc) && addConstraint(cc2);
 }
 
 void PseudoBooleanSolver::attach(CardinalityConstraint& cc) {

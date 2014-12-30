@@ -24,7 +24,7 @@
 
 using Glucose::Map;
 
-Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-neg|one-wc|one-neg-wc|one-pmres|pmres|pmres-reverse|pmres-log|pmres-split-conj");
+Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-2|one-neg|one-wc|one-neg-wc|one-pmres|one-pmres-2|pmres|pmres-reverse|pmres-log|pmres-split-conj");
 Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
 
 Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
@@ -50,10 +50,12 @@ static long parseLong(B& in) {
     
 MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     if(strcmp(option_maxsat_strat, "one") == 0) corestrat = &MaxSatSolver::corestrat_one;
+    else if(strcmp(option_maxsat_strat, "one-2") == 0) corestrat = &MaxSatSolver::corestrat_one_2;
     else if(strcmp(option_maxsat_strat, "one-neg") == 0) corestrat = &MaxSatSolver::corestrat_one_neg;
     else if(strcmp(option_maxsat_strat, "one-wc") == 0) corestrat = &MaxSatSolver::corestrat_one_wc;
     else if(strcmp(option_maxsat_strat, "one-neg-wc") == 0) corestrat = &MaxSatSolver::corestrat_one_neg_wc;
     else if(strcmp(option_maxsat_strat, "one-pmres") == 0) corestrat = &MaxSatSolver::corestrat_one_pmres;
+    else if(strcmp(option_maxsat_strat, "one-pmres-2") == 0) corestrat = &MaxSatSolver::corestrat_one_pmres_2;
     else if(strcmp(option_maxsat_strat, "pmres") == 0) corestrat = &MaxSatSolver::corestrat_pmres;
     else if(strcmp(option_maxsat_strat, "pmres-reverse") == 0) corestrat = &MaxSatSolver::corestrat_pmres_reverse;
     else if(strcmp(option_maxsat_strat, "pmres-split-conj") == 0) corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
@@ -550,7 +552,31 @@ void MaxSatSolver::corestrat_one(long limit) {
         cc.lits.push(~mkLit(nVars()-1));
     }
     
-    if(cc.size() > 1) addConstraint(cc);
+    assert(cc.size() > 1);
+    addConstraint(cc);
+}
+
+void MaxSatSolver::corestrat_one_2(long limit) {
+    trace(maxsat, 10, "Use algorithm one-2");
+    CardinalityConstraint cc;
+    cc.bound = conflict.size() - 1;
+    while(conflict.size() > 0) {
+        weights[var(conflict.last())] -= limit;
+        cc.lits.push(~conflict.last());
+        conflict.pop();
+    }
+    assert(conflict.size() == 0);
+    for(int i = 0; i < cc.bound; i++) {
+        newVar();
+        if(i != 0) addClause(~softLiterals.last(), mkLit(nVars()-1));
+        setFrozen(nVars()-1, true);
+        weights.push(limit);
+        softLiterals.push(mkLit(nVars()-1));
+        cc.lits.push(~mkLit(nVars()-1));
+    }
+    
+    assert(cc.size() > 1);
+    addEquality(cc);
 }
 
 void MaxSatSolver::corestrat_one_wc(long limit) {
@@ -574,7 +600,8 @@ void MaxSatSolver::corestrat_one_wc(long limit) {
         wc.coeffs.push(1);
     }
     
-    if(wc.size() > 1) addConstraint(wc);
+    assert(wc.size() > 1);
+    addConstraint(wc);
 }
 
 void MaxSatSolver::corestrat_one_neg(long limit) {
@@ -596,7 +623,8 @@ void MaxSatSolver::corestrat_one_neg(long limit) {
         cc.lits.push(mkLit(nVars()-1));
     }
     
-    if(cc.size() > 1) addConstraint(cc);
+    assert(cc.size() > 1);
+    addConstraint(cc);
 }
 
 void MaxSatSolver::corestrat_one_neg_wc(long limit) {
@@ -620,7 +648,8 @@ void MaxSatSolver::corestrat_one_neg_wc(long limit) {
         wc.coeffs.push(1);
     }
     
-    if(wc.size() > 1) addConstraint(wc);
+    assert(wc.size() > 1);
+    addConstraint(wc);
 }
 
 void MaxSatSolver::corestrat_one_pmres(long limit) {
@@ -629,19 +658,17 @@ void MaxSatSolver::corestrat_one_pmres(long limit) {
     const int N = option_maxsat_tag;
 
     Lit prec = lit_Undef;
-    vec<Lit> lits;
     for(;;) {
         assert(conflict.size() > 0);
         
         CardinalityConstraint cc;
         
         int i = N;
-        if(prec != lit_Undef) { cc.lits.push(prec); /* lits.push(~prec); */ i--; }
+        if(prec != lit_Undef) { cc.lits.push(prec); i--; }
         for(; i > 0; i--) {
             if(conflict.size() == 0) break;
             weights[var(conflict.last())] -= limit;
             cc.lits.push(~conflict.last());
-            lits.push(conflict.last());
             conflict.pop();
         }
         assert(cc.size() > 0);
@@ -656,8 +683,6 @@ void MaxSatSolver::corestrat_one_pmres(long limit) {
             if(i == 0 && conflict.size() > 0) { 
                 weights.push(0);
                 prec = mkLit(nVars()-1);
-//                for(int j = 0; j < lits.size(); j++) addClause(~lits[j], ~prec);
-//                lits.clear();
             }
             else {
                 setFrozen(nVars()-1, true);
@@ -669,6 +694,55 @@ void MaxSatSolver::corestrat_one_pmres(long limit) {
         addConstraint(cc);
         
         if(conflict.size() == 0) break;
+    }
+    
+    assert(conflict.size() == 0);
+}
+
+void MaxSatSolver::corestrat_one_pmres_2(long limit) {
+    trace(maxsat, 10, "Use algorithm one-pmres-2");
+    
+    const int N = option_maxsat_tag;
+
+    Lit prec = lit_Undef;
+    vec<Lit> lits;
+    for(;;) {
+        assert(conflict.size() > 0);
+        
+        CardinalityConstraint cc;
+        
+        int i = N;
+        if(prec != lit_Undef) { cc.lits.push(prec); lits.push(~prec); i--; }
+        for(; i > 0; i--) {
+            if(conflict.size() == 0) break;
+            weights[var(conflict.last())] -= limit;
+            cc.lits.push(~conflict.last());
+            lits.push(conflict.last());
+            conflict.pop();
+        }
+        assert(cc.size() > 0);
+        cc.bound = cc.size()-1;
+        
+        for(i = 0; i < cc.bound; i++) {
+            newVar();
+            cc.lits.push(~mkLit(nVars()-1));
+            if(i != 0) addClause(~mkLit(nVars()-2), mkLit(nVars()-1)); // symmetry breaker
+            setFrozen(nVars()-1, true);
+            weights.push(limit);
+            softLiterals.push(mkLit(nVars()-1));
+        }
+        
+        addConstraint(cc);
+        
+        if(conflict.size() == 0) break;
+
+        newVar();
+        weights.push(0);
+        prec = mkLit(nVars()-1);
+        for(int j = 0; j < lits.size(); j++) addClause(~lits[j], ~prec);
+        lits.push(prec);
+        addClause(lits);
+        lits.clear();
     }
     
     assert(conflict.size() == 0);
