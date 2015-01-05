@@ -678,6 +678,7 @@ void MaxSatSolver::corestrat_one_pmres(int64_t limit) {
 
         for(i = 0; i < cc.bound; i++) {
             newVar();
+            setFrozen(nVars()-1, true);
             cc.lits.push(~mkLit(nVars()-1));
             if(i != 0) addClause(~mkLit(nVars()-2), mkLit(nVars()-1)); // symmetry breaker
             if(i == 0 && conflict.size() > 0) { 
@@ -685,7 +686,6 @@ void MaxSatSolver::corestrat_one_pmres(int64_t limit) {
                 prec = mkLit(nVars()-1);
             }
             else {
-                setFrozen(nVars()-1, true);
                 weights.push(limit);
                 softLiterals.push(mkLit(nVars()-1));
             }
