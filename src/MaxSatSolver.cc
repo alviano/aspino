@@ -30,7 +30,7 @@ Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set d
 Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
 Glucose::BoolOption option_maxsat_saturate("MAXSAT", "maxsat-saturate", "Eliminate all cores of weight W before considering any core of level smaller than W.", false);
 
-Glucose::IntOption option_maxsat_tag("MAXSAT", "maxsat-tag", "Parameter for maxsat-strat.", 8, Glucose::IntRange(2, INT32_MAX));
+Glucose::IntOption option_maxsat_tag("MAXSAT", "maxsat-tag", "Parameter for maxsat-strat.", 16, Glucose::IntRange(2, INT32_MAX));
 
 namespace aspino {
 
