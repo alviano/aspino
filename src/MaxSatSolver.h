@@ -52,6 +52,7 @@ private:
     
     void sameSoftVar(Lit soft, int64_t weight);
     
+    void removeSoftLiteralsAtLevelZero();
     void detectLevels();
     void preprocess();
     int64_t setAssumptions(int64_t limit);

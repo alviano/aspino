@@ -88,16 +88,11 @@ void MaxSatSolver::sameSoftVar(Lit soft, int64_t weight) {
     if(weights[var(soft)] == weight) {
         lowerbound += weight;
         setFrozen(var(soft), false);
-        int j = 0;
-        for(int i = 0; i < softLiterals.size(); i++) {
-            if(softLiterals[i] == ~soft) continue;
-            softLiterals[j++] = softLiterals[i];
-        }
-        assert(softLiterals.size() == j+1);
+        softLiterals[pos] = softLiterals[softLiterals.size()-1];
         softLiterals.shrink_(1);
     }else if(weights[var(soft)] < weight) {
         lowerbound += weights[var(soft)];
-        for(int i = 0; i < softLiterals.size(); i++) if(softLiterals[i] == ~soft) { softLiterals[i] = soft; break; }
+        softLiterals[pos] = soft;
         weights[var(soft)] = weight - weights[var(soft)];
     }
     else {
@@ -174,7 +169,7 @@ void MaxSatSolver::parse(gzFile in_) {
         }
     }
     if(count != inClauses)
-        cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl;
+        cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl, exit(3);
 }
 
 int64_t MaxSatSolver::setAssumptions(int64_t limit) {
@@ -229,9 +224,22 @@ void MaxSatSolver::preprocess() {
 
 }
 
+void MaxSatSolver::removeSoftLiteralsAtLevelZero() {
+    int j = 0;
+    for(int i = 0; i < softLiterals.size(); i++) {
+        if(value(softLiterals[i]) != l_Undef) { 
+            if(value(softLiterals[i]) == l_False) lowerbound += weights[var(softLiterals[i])];
+            continue;
+        }
+        softLiterals[j++] = softLiterals[i];
+    }
+    softLiterals.shrink_(softLiterals.size() - j);
+}
+
 lbool MaxSatSolver::solve() {
     inClauses = clauses.size();
     upperbound = LONG_MAX;
+    removeSoftLiteralsAtLevelZero();
     cout << "o " << lowerbound << endl;
     detectLevels();
 
