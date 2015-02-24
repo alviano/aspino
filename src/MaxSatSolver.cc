@@ -317,7 +317,7 @@ void MaxSatSolver::solve_() {
         trace(maxsat, 2, "Solve with " << assumptions.size() << " assumptions. Current bounds: [" << lowerbound << ":" << upperbound << "]");
         trace(maxsat, 100, "Assumptions: " << assumptions);
         
-        if(assumptions.size() == 0 /*&& upperbound != LONG_MAX*/) status = l_Undef;
+        if(assumptions.size() == 0 && upperbound != LONG_MAX) status = l_Undef;
         else PseudoBooleanSolver::solve();
         
         if(status != l_False) {
