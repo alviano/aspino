@@ -103,6 +103,8 @@ void MaxSatSolver::sameSoftVar(Lit soft, int64_t weight) {
 }
 
 void MaxSatSolver::addWeightedClause(vec<Lit>& lits, int64_t weight) {
+    if(weight == 0) return;
+    
     Lit soft;
     if(lits.size() == 1)
         soft = lits[0];
