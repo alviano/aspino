@@ -89,6 +89,6 @@ private:
 
 
 
-} // namespace miniasp
+} // namespace aspino
 
 #endif

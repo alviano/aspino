@@ -20,6 +20,7 @@
 #include "SatSolver.h"
 #include "PseudoBooleanSolver.h"
 #include "MaxSatSolver.h"
+#include "AspSolver.h"
 #include "utils/trace.h"
 
 #include <utils/Options.h>
@@ -67,8 +68,7 @@ int main(int argc, char** argv)
     Glucose::parseOptions(argc, argv, true);
 
     if(strcmp(option_mode, "asp") == 0)
-//        solver = new AspSolver();
-        { cerr << "ASP is not currently supported." << endl; exit(-1); }
+        solver = new AspSolver();
     else if(strcmp(option_mode, "sat") == 0)
         solver = new SatSolver();
     else if(strcmp(option_mode, "maxsat") == 0)
