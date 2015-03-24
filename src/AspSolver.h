@@ -27,11 +27,13 @@ namespace aspino {
 
 class Literal {
 public:
-    Literal(int id, int type);
+    Literal(int id=0, int type=0);
+    inline Literal(const Literal& init) : id(init.id), type(init.type) {}
     
     inline Lit toLit() const { return mkLit(id, type == POS || type == DNEG); }
     
     inline bool operator==(const Literal& right) const { return id == right.id && type == right.type; }
+    inline bool operator!=(const Literal& right) const { return !(*this == right); }
     
     inline bool head() const { return SHEAD <= type && type <= UHEAD; }
     inline bool body() const { return POS <= type && type <= DNEG; }
@@ -59,7 +61,8 @@ public:
     
     virtual void newVar();
     
-    virtual lbool solve();
+    virtual bool eliminate(bool turn_off_elim);
+    virtual lbool solve(int n);
     
     virtual void printModel() const;
     
@@ -68,7 +71,7 @@ private:
     
     vec<int> idmap;
     Map<int, string> namemap;
-    vec<vec<vec<Literal>*>*> occ[5];
+    vec<vec<vec<Literal>*> > occ[5];
     vec<unsigned> tag;
     unsigned tagCalls;
     
@@ -77,13 +80,14 @@ private:
     
     unsigned propagated;
     
-    unsigned nModels;
-
+    int nModels;
+    
     int getId(int input_id);
     string getName(int atom) const;
     
     void parseNormalRule(Glucose::StreamBuffer& in);
-    
+    void parseChoiceRule(Glucose::StreamBuffer& in);
+
     void propagate();
     void propagateTrue(Var v);
     void propagateFalse(Var v);
@@ -93,7 +97,9 @@ private:
     void onFalseBody(vec<Literal>& rule);
     
     void finalPropagation();
+    void processComponents();
     void completion();
+    void clearParsingStructures();
 };
     
 } // namespace aspino
