@@ -20,6 +20,10 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/strong_components.hpp>
 
+#include <vector>
+
+using std::vector;
+
 namespace aspino {
     
 class AdjacencyList: public boost::adjacency_list<>
@@ -39,7 +43,7 @@ void DepGraph::add(int from, int to) {
     boost::add_edge(from, to, arcs);
 }
 
-void DepGraph::sccs(vector<vector<int> >& components, bool& tight) {
+void DepGraph::sccs(vec<int>& atom2comp, vec<vec<int> >& components, bool& tight) {
     vector<int> sccs(boost::num_vertices(arcs)), discover_time(boost::num_vertices(arcs));
     vector<boost::default_color_type> color(boost::num_vertices(arcs));
     vector<boost::graph_traits<boost::adjacency_list<> >::vertex_descriptor> root(boost::num_vertices(arcs));
@@ -47,14 +51,15 @@ void DepGraph::sccs(vector<vector<int> >& components, bool& tight) {
 
     assert(n > 0);
     components.clear();
-    components.resize(n);
+    components.growTo(n);
     tight = true;
     
-    for(vector<int>::size_type i = 0; i != sccs.size(); i++) {
+    for(int i = 0; i < static_cast<int>(sccs.size()); i++) {
         int scc = sccs[i];
-        assert(scc < static_cast<int>(components.size()));
+        assert(scc < components.size());
     
-        components[scc].push_back(i);
+        atom2comp[i] = scc;
+        components[scc].push(i);
         if(components[scc].size() > 1) tight = false;
     }    
 }

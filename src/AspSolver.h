@@ -82,6 +82,17 @@ private:
     
     int nModels;
     
+    vec<vec<Literal>*> recursiveRules;
+    vec<int> withoutSourcePointer;
+    vec<int> possibleSourcePointerOf;
+    vec<int> sourcePointer;
+    vec<vec<int> > possibleSourcePointers;
+    vec<vec<int> > inBody[2];
+    vec<vec<int> > inRecBody;
+    vec<int> unfounded;
+    
+    void findSourcePointers();
+    
     int getId(int input_id);
     string getName(int atom) const;
     
@@ -98,7 +109,7 @@ private:
     
     void finalPropagation();
     void processComponents();
-    void completion();
+    void completion(Var i);
     void clearParsingStructures();
 };
     

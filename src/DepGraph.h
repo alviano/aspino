@@ -18,9 +18,9 @@
 #ifndef __DepGraph_h__
 #define __DepGraph_h__
 
-#include <vector>
+#include "glucose-syrup/mtl/Vec.h"
 
-using std::vector;
+using Glucose::vec;
 
 namespace aspino {
 
@@ -32,7 +32,7 @@ public:
     ~DepGraph();
     
     void add(int from, int to);
-    void sccs(vector<vector<int> >& components, bool& tight);
+    void sccs(vec<int>& atom2comp, vec<vec<int> >& components, bool& tight);
     
 private:
     AdjacencyList& arcs;

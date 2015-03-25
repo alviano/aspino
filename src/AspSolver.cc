@@ -248,7 +248,6 @@ void AspSolver::parse(gzFile in_) {
     
     finalPropagation();
     processComponents();
-    completion();
     clearParsingStructures();
     
     trace(asp_pre, 1, "All done.");
@@ -280,6 +279,11 @@ void AspSolver::newVar() {
     MaxSatSolver::newVar();
     tag.push(0);
     supported.push(false);
+    sourcePointer.push(-1);
+    possibleSourcePointers.push();
+    inBody[0].push();
+    inBody[1].push();
+    inRecBody.push();
 }
 
 bool AspSolver::eliminate(bool turn_off_elim) {
@@ -477,6 +481,8 @@ void AspSolver::finalPropagation() {
 }
 
 void AspSolver::processComponents() {
+    if(!ok) return;
+    
     trace(asp_pre, 1, "Start processComponents()...");
     DepGraph dg;
     for(int i = 0; i < nVars(); i++) {
@@ -497,57 +503,129 @@ void AspSolver::processComponents() {
         }
     }
     
-    vector<vector<int> > components;
+    vec<int> atom2comp(nVars());
+    vec<vec<int> > components;
     bool tight;
-    dg.sccs(components, tight);
-    cout << components.size() << endl;
-}
-
-void AspSolver::completion() {
-    trace(asp_pre, 1, "Start completion()...");
-    if(!ok) return;
-    for(int i = 0; i < nVars(); i++) {
-        if(value(i) == l_False) continue;
-        if(supported[i]) continue;
-        
-        vec<vec<Literal>*>& heads = occ[Literal::SHEAD][i];
-        assert_msg(heads.size() > 0, "Atom " << getName(i) << " has " << heads.size() << " definitions.");
-        trace(asp_pre, 5, "Processing atom " << i << " with " << heads.size() << " possibly supporting rules.");
-        if(heads.size() == 1) {
-            vec<Literal>& rule = *heads[0];
-            assert(!supported[i]);
-            assert(value(i) == l_Undef);
-            for(int j = 0; j < rule.size(); j++) {
-                if(rule[j] != Literal(i, Literal::SHEAD)) {
-                    addClause(~mkLit(i), ~rule[j].toLit());
-                }
-            }
+    dg.sccs(atom2comp, components, tight);
+    for(int i = 0; i < components.size(); i++) {
+        vec<int>& c = components[i];
+        if(c.size() == 1) { 
+            if(value(i) == l_False) continue;
+            if(supported[i]) continue;
+            completion(c[0]);
             continue;
         }
         
-        vec<Lit> supp;
-        supp.push(~mkLit(i));
-        for(int j = 0; j < heads.size(); j++) {
-            vec<Literal>& rule = *heads[j];
-            assert(rule.size() >= 2);
-            Lit aux;
-            if(rule.size() == 2)
-                aux = rule[0] == Literal(i, Literal::SHEAD) ? ~rule[1].toLit() : ~rule[0].toLit();
-            else {
-                aux = ~mkLit(nVars());
-                newVar();
-                vec<Lit> lits;
-                lits.push(~aux);
-                for(int k = 0; k < rule.size(); i++) {
-                    if(rule[k] == Literal(i, Literal::SHEAD)) continue;
-                    lits.push(rule[k].toLit());
-                    addClause(aux, ~rule[k].toLit());
+        trace(asp_pre, 2, "Processing recursive component " << i);
+        for(int j = 0; j < c.size(); j++) {
+            completion(c[j]);
+            
+            unfounded.push(c[j]);
+            vec<vec<Literal>*>& heads = occ[Literal::SHEAD][j];
+            for(int k = 0; k < heads.size(); k++) {
+                vec<Literal>* rule = new vec<Literal>();
+                heads[k]->moveTo(*rule);
+                recursiveRules.push(rule);
+                withoutSourcePointer.push(0);
+                possibleSourcePointerOf.push(c[j]);
+                possibleSourcePointers[c[j]].push(recursiveRules.size()-1);
+                for(int idx = 0; idx < rule->size(); idx++) {
+                    Literal lit = rule->operator[](idx);
+                    if(lit == Literal(c[j], Literal::SHEAD) || lit == Literal(c[j], Literal::UHEAD)) continue;
+                    inBody[lit.type == Literal::POS || lit.type ==  Literal::DNEG ? 1 : 0][lit.id].push(recursiveRules.size()-1);
+                    if(lit.type == Literal::POS && atom2comp[lit.id] == i) { 
+                        inRecBody[lit.id].push(recursiveRules.size()-1); 
+                        withoutSourcePointer[withoutSourcePointer.size()-1]++;
+                    }
                 }
-                addClause(lits);
-                assert(propagated == static_cast<unsigned>(trail.size()));
             }
-            supp.push(aux);
         }
+        findSourcePointers();
+    }
+}
+
+void AspSolver::completion(Var i) {
+    trace(asp_pre, 3, "Completion of atom " << i);
+    assert(value(i) != l_False);
+    assert(!supported[i]);
+    vec<vec<Literal>*>& heads = occ[Literal::SHEAD][i];
+    assert_msg(heads.size() > 0, "Atom " << getName(i) << " has " << heads.size() << " definitions.");
+    trace(asp_pre, 5, "Processing atom " << i << " with " << heads.size() << " possibly supporting rules.");
+    if(heads.size() == 1) {
+        vec<Literal>& rule = *heads[0];
+        assert(!supported[i]);
+        assert(value(i) == l_Undef);
+        for(int j = 0; j < rule.size(); j++) {
+            if(rule[j] != Literal(i, Literal::SHEAD)) {
+                addClause(~mkLit(i), ~rule[j].toLit());
+            }
+        }
+        return;
+    }
+    
+    vec<Lit> supp;
+    supp.push(~mkLit(i));
+    for(int j = 0; j < heads.size(); j++) {
+        vec<Literal>& rule = *heads[j];
+        assert(rule.size() >= 2);
+        Lit aux;
+        if(rule.size() == 2)
+            aux = rule[0] == Literal(i, Literal::SHEAD) ? ~rule[1].toLit() : ~rule[0].toLit();
+        else {
+            aux = ~mkLit(nVars());
+            newVar();
+            vec<Lit> lits;
+            lits.push(~aux);
+            for(int k = 0; k < rule.size(); i++) {
+                if(rule[k] == Literal(i, Literal::SHEAD)) continue;
+                lits.push(rule[k].toLit());
+                addClause(aux, ~rule[k].toLit());
+            }
+            addClause(lits);
+            assert(propagated == static_cast<unsigned>(trail.size()));
+        }
+        supp.push(aux);
+    }
+}
+
+void AspSolver::findSourcePointers() {
+    tagCalls++;
+    for(int i = 0; i < unfounded.size(); i++) {
+        int atom = unfounded[i];
+        if(tag[atom] == tagCalls) continue;
+        vec<int>& poss = possibleSourcePointers[atom];
+        for(int j = 0; j < poss.size(); j++) {
+            if(withoutSourcePointer[poss[j]] == 0) {
+                vec<int> stackA;
+                vec<int> stackR;
+                stackA.push(atom);
+                stackR.push(poss[j]);
+                
+                do{
+                    int a = stackA[stackA.size()-1];
+                    sourcePointer[a] = stackR[stackR.size()-1];
+                    tag[a] = tagCalls;
+                    stackA.shrink(1);
+                    stackR.shrink(1);
+                    trace(asp_pre, 10, "New source pointer for atom " << a << ": " << sourcePointer[a]);
+                    for(int k = 0; k < inRecBody[a].size(); k++) {
+                        if(--withoutSourcePointer[inRecBody[a][k]] == 0 && tag[possibleSourcePointerOf[inRecBody[a][k]]] != tagCalls) {
+                            stackA.push(possibleSourcePointerOf[inRecBody[a][k]]);
+                            stackR.push(inRecBody[a][k]);
+                        }
+                    }
+                }while(stackA.size() > 0);
+
+                break;
+            }
+        }
+    }
+    
+    for(int i = 0; i < unfounded.size(); i++) {
+        int atom = unfounded[i];
+        if(tag[atom] == tagCalls) continue;
+        cout << "Unfounded: " << atom << endl; // TODO
+        withoutSourcePointer[sourcePointer[atom]] = 0;
     }
 }
 
