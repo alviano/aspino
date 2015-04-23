@@ -66,6 +66,9 @@ public:
     
     virtual void printModel() const;
     
+protected:
+    virtual CRef morePropagate();
+    
 private:
     vec<vec<Literal>*> program;
     
@@ -78,7 +81,7 @@ private:
     vec<bool> supported;
     vec<Var> supportInference;
     
-    unsigned propagated;
+    int nextToPropagate;
     
     int nModels;
     
@@ -91,6 +94,7 @@ private:
     vec<vec<int> > inRecBody;
     vec<int> unfounded;
     
+    CRef morePropagate(Lit lit);
     void findSourcePointers();
     
     int getId(int input_id);

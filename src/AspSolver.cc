@@ -52,7 +52,7 @@ Literal::Literal(int id_, int type_)
 
 AspSolver::AspSolver() {
     tagCalls = 0;
-    propagated = 0;
+    nextToPropagate = 0;
     nModels = 0;
 }
 
@@ -324,8 +324,8 @@ void AspSolver::printModel() const {
 
 void AspSolver::propagate() {
     trace(asp_pre, 5, "Start propagate()...");
-    while(propagated < static_cast<unsigned>(trail.size())) {
-        Var v = var(trail[propagated++]);
+    while(nextToPropagate < nextToPropagateByUnit()) {
+        Var v = var(trail[nextToPropagate++]);
         if(value(v) == l_True) propagateTrue(v);
         else propagateFalse(v);
     }
@@ -446,7 +446,7 @@ void AspSolver::onFalseBody(vec<Literal>& rule) {
 
 void AspSolver::finalPropagation() {
     trace(asp_pre, 1, "Start finalPropagation()...");
-    assert(propagated == static_cast<unsigned>(trail.size()));
+    assert(nextToPropagate == nextToPropagateByUnit());
     
     supportInference.clear();
     for(int i = 0; i < nVars(); i++) {
@@ -582,10 +582,35 @@ void AspSolver::completion(Var i) {
                 addClause(aux, ~rule[k].toLit());
             }
             addClause(lits);
-            assert(propagated == static_cast<unsigned>(trail.size()));
+            assert(nextToPropagate == nextToPropagateByUnit());
         }
         supp.push(aux);
     }
+}
+
+CRef AspSolver::morePropagate() {
+    CRef ret = MaxSatSolver::morePropagate();
+    if(ret != CRef_Undef) return ret;
+    while(nextToPropagate < nextToPropagateByUnit()) {
+        ret = morePropagate(mainTrail(nextToPropagate++));
+        if(ret != CRef_Undef) return ret;
+    }
+    return ret;
+}
+
+CRef AspSolver::morePropagate(Lit lit) {
+    trace(asp, 10, "Propagating " << lit << "@" << level(var(lit)) << " (atom " << getName(var(lit)) << ")");
+
+    vec<int> unfounded;
+    vec<int>& in = inBody[1-sign(lit)][var(lit)];
+    for(int i = 0; i < in.size(); i++) {
+        int ruleIdx = in[i];
+        int head = possibleSourcePointerOf[ruleIdx];
+        if(sourcePointer[head] == ruleIdx) unfounded.push(head);
+    }
+    findSourcePointers();
+
+    return CRef_Undef;
 }
 
 void AspSolver::findSourcePointers() {
