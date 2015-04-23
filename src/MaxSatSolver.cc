@@ -182,7 +182,7 @@ int64_t MaxSatSolver::setAssumptions(int64_t limit) {
     for(int i = 0; i < softLiterals.size(); i++) {
         int64_t w = weights[var(softLiterals[i])];
         if(w == 0) continue;
-        if(w + lowerbound > upperbound) {
+        if(w + lowerbound >= upperbound) {
             addClause(softLiterals[i]);
             trace(maxsat, 10, "Hardening of " << softLiterals[i] << " of weight " << weights[var(softLiterals[i])]);
             weights[var(softLiterals[i])] = 0;
