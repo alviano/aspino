@@ -942,7 +942,7 @@ void MaxSatSolver::corestrat_pmreslog(int64_t limit) {
 void MaxSatSolver::corestrat_kdyn(int64_t limit) {
     trace(maxsat, 10, "Use algorithm kdyn");
     
-    const int N = fmax(log2(conflict.size()), 8);
+    const int N = fmax(log2(conflict.size()), option_maxsat_tag);
     trace(maxsat, 15, "At most " << N*2 << " elements in the new constraints");
 
     Lit prec = lit_Undef;
