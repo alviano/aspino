@@ -24,7 +24,7 @@
 
 using Glucose::Map;
 
-Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-2|one-neg|one-wc|one-neg-wc|one-pmres|one-pmres-2|pmres|pmres-reverse|pmres-log|pmres-split-conj");
+Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-2|one-neg|one-wc|one-neg-wc|one-pmres|one-pmres-2|pmres|pmres-reverse|pmres-log|pmres-split-conj|kdyn");
 Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
 
 Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
@@ -60,6 +60,7 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     else if(strcmp(option_maxsat_strat, "pmres-reverse") == 0) corestrat = &MaxSatSolver::corestrat_pmres_reverse;
     else if(strcmp(option_maxsat_strat, "pmres-split-conj") == 0) corestrat = &MaxSatSolver::corestrat_pmres_split_conj;
     else if(strcmp(option_maxsat_strat, "pmres-log") == 0) corestrat = &MaxSatSolver::corestrat_pmreslog;
+    else if(strcmp(option_maxsat_strat, "kdyn") == 0) corestrat = &MaxSatSolver::corestrat_kdyn;
     else assert(0);
     
     if(strcmp(option_maxsat_disjcores, "no") == 0) disjcores = NO;
@@ -245,8 +246,7 @@ lbool MaxSatSolver::solve() {
     cout << "o " << lowerbound << endl;
     detectLevels();
 
-    for(;;) {
-        assert(levels.size() > 0);
+    while(levels.size() > 0) {
         solveCurrentLevel();
         if(upperbound == LONG_MAX) { cout << "s UNSATISFIABLE" << endl; return l_False; }
         
@@ -259,7 +259,20 @@ lbool MaxSatSolver::solve() {
             weights[var(softLiterals[i])] = 0;
         }
     }
+
+    if(lowerbound < upperbound) {
+        if(!ok) status = l_False;
+        else PseudoBooleanSolver::solve();
+        if(status == l_True) 
+            updateUpperBound();
+        else {
+            lowerbound = upperbound;
+            cout << "o " << lowerbound << endl;
+        }
+    }
     
+    assert(lowerbound == upperbound);
+
     while(levels.size() > 0) { delete levels.last(); levels.pop(); }
     
     assert(upperbound < LONG_MAX);
@@ -924,6 +937,54 @@ void MaxSatSolver::corestrat_pmreslog(int64_t limit) {
     }
     assert(conflict.size() == 1);
     weights[var(conflict[0])] -= limit;
+}
+
+void MaxSatSolver::corestrat_kdyn(int64_t limit) {
+    trace(maxsat, 10, "Use algorithm kdyn");
+    
+    const int N = fmax(log2(conflict.size()), 8);
+    cout << N << endl;
+
+    Lit prec = lit_Undef;
+    for(;;) {
+        assert(conflict.size() > 0);
+        
+        CardinalityConstraint cc;
+        
+        int i = N;
+        if(prec != lit_Undef) { cc.lits.push(prec); i--; }
+        for(; i > 0; i--) {
+            if(conflict.size() == 0) break;
+            weights[var(conflict.last())] -= limit;
+            cc.lits.push(~conflict.last());
+            conflict.pop();
+        }
+        assert(cc.size() > 0);
+        cc.bound = cc.size()-1;
+        
+        if(conflict.size() > 0) cc.bound++;
+
+        for(i = 0; i < cc.bound; i++) {
+            newVar();
+            setFrozen(nVars()-1, true);
+            cc.lits.push(~mkLit(nVars()-1));
+            if(i != 0) addClause(~mkLit(nVars()-2), mkLit(nVars()-1)); // symmetry breaker
+            if(i == 0 && conflict.size() > 0) { 
+                weights.push(0);
+                prec = mkLit(nVars()-1);
+            }
+            else {
+                weights.push(limit);
+                softLiterals.push(mkLit(nVars()-1));
+            }
+        }
+        
+        addConstraint(cc);
+        
+        if(conflict.size() == 0) break;
+    }
+    
+    assert(conflict.size() == 0);
 }
 
 void MaxSatSolver::detectLevels() {

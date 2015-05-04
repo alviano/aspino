@@ -76,6 +76,7 @@ private:
     void corestrat_pmres_reverse(int64_t limit);
     void corestrat_pmres_split_conj(int64_t limit);
     void corestrat_pmreslog(int64_t limit);
+    void corestrat_kdyn(int64_t limit);
 
     enum DisjunctCores {NO = 0, PRE, ALL};
     DisjunctCores disjcores;
