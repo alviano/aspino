@@ -506,12 +506,12 @@ void PseudoBooleanSolver::newVar() {
 }
 
 bool PseudoBooleanSolver::moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
-    if(moreReasonCC[var(lit)] != NULL) return _moreReasonCC(lit, out_learnt, selectors, pathC);
-    if(moreReasonWC[var(lit)] != NULL) return _moreReasonWC(lit, out_learnt, selectors, pathC);
+    if(moreReasonCC[var(lit)] != NULL) { _moreReasonCC(lit, out_learnt, selectors, pathC); return true; }
+    if(moreReasonWC[var(lit)] != NULL) { _moreReasonWC(lit, out_learnt, selectors, pathC); return true; }
     return false;
 }
 
-bool PseudoBooleanSolver::_moreReasonCC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+void PseudoBooleanSolver::_moreReasonCC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
     assert(decisionLevel() != 0);
     assert(reason(var(lit)) == CRef_Undef);
     CardinalityConstraint& cc = *moreReasonCC[var(lit)];
@@ -546,10 +546,9 @@ bool PseudoBooleanSolver::_moreReasonCC(Lit lit, vec<Lit>& out_learnt, vec<Lit>&
                 out_learnt.push(q);
         }
     }
-    return true;
 }
 
-bool PseudoBooleanSolver::_moreReasonWC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+void PseudoBooleanSolver::_moreReasonWC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
     assert(decisionLevel() != 0);
     assert(reason(var(lit)) == CRef_Undef);
     WeightConstraint& wc = *moreReasonWC[var(lit)];
@@ -584,16 +583,15 @@ bool PseudoBooleanSolver::_moreReasonWC(Lit lit, vec<Lit>& out_learnt, vec<Lit>&
                 out_learnt.push(q);
         }
     }
-    return true;
 }
 
 bool PseudoBooleanSolver::moreReason(Lit lit) {
-    if(moreReasonCC[var(lit)] != NULL) return _moreReasonCC(lit);
-    if(moreReasonWC[var(lit)] != NULL) return _moreReasonWC(lit);
+    if(moreReasonCC[var(lit)] != NULL) { _moreReasonCC(lit); return true; }
+    if(moreReasonWC[var(lit)] != NULL) { _moreReasonWC(lit); return true; }
     return false;
 }
 
-bool PseudoBooleanSolver::_moreReasonCC(Lit lit) {
+void PseudoBooleanSolver::_moreReasonCC(Lit lit) {
     assert(decisionLevel() != 0);
     assert(reason(var(lit)) == CRef_Undef);
     CardinalityConstraint& cc = *moreReasonCC[var(lit)];
@@ -607,10 +605,9 @@ bool PseudoBooleanSolver::_moreReasonCC(Lit lit) {
         if(level(var(l)) == 0) continue;
         seen[var(l)] = 1;
     }
-    return true;
 }
 
-bool PseudoBooleanSolver::_moreReasonWC(Lit lit) {
+void PseudoBooleanSolver::_moreReasonWC(Lit lit) {
     assert(decisionLevel() != 0);
     assert(reason(var(lit)) == CRef_Undef);
     WeightConstraint& wc = *moreReasonWC[var(lit)];
@@ -624,16 +621,15 @@ bool PseudoBooleanSolver::_moreReasonWC(Lit lit) {
         if(level(var(l)) == 0) continue;
         seen[var(l)] = 1;
     }
-    return true;
 }
 
 bool PseudoBooleanSolver::moreConflict(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
-    if(moreConflictCC != NULL) return _moreConflictCC(out_learnt, selectors, pathC);
-    if(moreConflictWC != NULL) return _moreConflictWC(out_learnt, selectors, pathC);
+    if(moreConflictCC != NULL) { _moreConflictCC(out_learnt, selectors, pathC); return true; }
+    if(moreConflictWC != NULL) { _moreConflictWC(out_learnt, selectors, pathC); return true; }
     return false;
 }
     
-bool PseudoBooleanSolver::_moreConflictCC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+void PseudoBooleanSolver::_moreConflictCC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
     assert(decisionLevel() != 0);
     
     if(!seen[var(moreConflictLit)] && level(var(moreConflictLit)) > 0) {
@@ -677,10 +673,9 @@ bool PseudoBooleanSolver::_moreConflictCC(vec<Lit>& out_learnt, vec<Lit>& select
                 out_learnt.push(q);
         }
     }
-    return true;
 }
 
-bool PseudoBooleanSolver::_moreConflictWC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+void PseudoBooleanSolver::_moreConflictWC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
     assert(decisionLevel() != 0);
     
     if(!seen[var(moreConflictLit)] && level(var(moreConflictLit)) > 0) {
@@ -724,7 +719,6 @@ bool PseudoBooleanSolver::_moreConflictWC(vec<Lit>& out_learnt, vec<Lit>& select
                 out_learnt.push(q);
         }
     }
-    return true;
 }
 
 void PseudoBooleanSolver::onCancel() {

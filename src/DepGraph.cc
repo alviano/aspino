@@ -38,9 +38,16 @@ DepGraph::~DepGraph() {
     delete &arcs;
 }
 
+void DepGraph::add(int node) {
+    assert(node >= 0);
+    boost::add_edge(node + 1, 0, arcs);
+}
+
 void DepGraph::add(int from, int to) {
     assert(from != to);
-    boost::add_edge(from, to, arcs);
+    assert(from >= 0);
+    assert(to >= 0);
+    boost::add_edge(from + 1, to + 1, arcs);
 }
 
 void DepGraph::sccs(vec<int>& atom2comp, vec<vec<int> >& components, bool& tight) {
@@ -49,17 +56,19 @@ void DepGraph::sccs(vec<int>& atom2comp, vec<vec<int> >& components, bool& tight
     vector<boost::graph_traits<boost::adjacency_list<> >::vertex_descriptor> root(boost::num_vertices(arcs));
     int n = boost::strong_components(arcs, &sccs[0] , boost::root_map(&root[0]).color_map(&color[0]).discover_time_map(&discover_time[0]));
 
-    assert(n > 0);
+    assert(n > 1);
     components.clear();
-    components.growTo(n);
+    components.growTo(n-1);
     tight = true;
     
-    for(int i = 0; i < static_cast<int>(sccs.size()); i++) {
-        int scc = sccs[i];
+    assert(sccs[0] == 0);
+    for(int i = 1; i < static_cast<int>(sccs.size()); i++) {
+        int scc = sccs[i] - 1;
+        assert(scc >= 0);
         assert(scc < components.size());
     
-        atom2comp[i] = scc;
-        components[scc].push(i);
+        atom2comp[i-1] = scc;
+        components[scc].push(i-1);
         if(components[scc].size() > 1) tight = false;
     }    
 }

@@ -218,6 +218,45 @@ void AspSolver::parseChoiceRule(Glucose::StreamBuffer& in) {
     }
 }
 
+void AspSolver::parseCountRule(Glucose::StreamBuffer& in) {
+    trace(asp_pre, 5, "Parsing count rule...");
+    int head = parseInt(in);
+    assert(head != 1);
+    vec<Literal>* rule = new vec<Literal>();
+    
+    int size = parseInt(in);
+    int neg = parseInt(in);
+    int bound = parseInt(in);    
+
+    while(size-- > 0) {
+        int atom = getId(parseInt(in));
+        if(neg-- > 0) rule->push(Literal(atom, Literal::NEG));
+        else rule->push(Literal(atom, Literal::POS));
+    }
+    delete rule;
+}
+
+void AspSolver::parseSumRule(Glucose::StreamBuffer& in) {
+    trace(asp_pre, 5, "Parsing sum rule...");
+    int head = parseInt(in);
+    assert(head != 1);
+    vec<Literal>* rule = new vec<Literal>();
+    
+    int bound = parseInt(in);    
+    int size = parseInt(in);
+    int neg = parseInt(in);
+
+    while(size-- > 0) {
+        int atom = getId(parseInt(in));
+        if(neg-- > 0) rule->push(Literal(atom, Literal::NEG));
+        else rule->push(Literal(atom, Literal::POS));
+    }
+    
+    vec<int> weights;
+    while(weights.size() < rule->size()) weights.push(parseInt(in));
+    delete rule;
+}
+
 void AspSolver::parse(gzFile in_) {
     trace(asp_pre, 1, "Start parsing...");
     Glucose::StreamBuffer in(in_);
@@ -229,6 +268,8 @@ void AspSolver::parse(gzFile in_) {
         if(type == 0) break;
         else if(type == 1) parseNormalRule(in);
         else if(type == 3) parseChoiceRule(in);
+        else if(type == 2) parseCountRule(in);
+        else if(type == 5) parseSumRule(in);
         else cerr << "PARSE ERROR! Unexpected rule type: " << type << endl, exit(3);
         propagate();
     }
@@ -249,6 +290,7 @@ void AspSolver::parse(gzFile in_) {
     finalPropagation();
     processComponents();
     clearParsingStructures();
+//    for(int i = 0; i < nVars(); i++) setFrozen(i, true); // TODO: remove
     
     trace(asp_pre, 1, "All done.");
 }
@@ -284,6 +326,9 @@ void AspSolver::newVar() {
     inBody[0].push();
     inBody[1].push();
     inRecBody.push();
+    isBodyOf[0].push();
+    isBodyOf[1].push();
+    moreReasonWF.push(-1);
 }
 
 bool AspSolver::eliminate(bool turn_off_elim) {
@@ -392,8 +437,8 @@ void AspSolver::onFalseHead(vec<Literal>& rule, Literal headAtom) {
 
 void AspSolver::onTrueBody(vec<Literal>& rule, Literal bodyAtom) {
     if(rule.size() == 0) return;
-    
-    bool undefinedBody = false;
+
+    bool trueBody = true;
     bool hasMustBeTrueBody = false;
     int headAtoms = 0;
     for(int i = 0; i < rule.size(); i++) {
@@ -402,23 +447,28 @@ void AspSolver::onTrueBody(vec<Literal>& rule, Literal bodyAtom) {
                 rule[i] = rule[rule.size()-1];
                 rule.shrink(1);
             }
+            else hasMustBeTrueBody = true;
             continue;
         }
         
-        if(value(rule[i].id) == l_Undef && rule[i].body()) undefinedBody = true;
-        if(value(rule[i].id) == l_True && rule[i].body()) hasMustBeTrueBody = true;
         if(rule[i].head()) headAtoms++;
+        else if(value(rule[i].id) == l_Undef) trueBody = false;
+        else if(value(rule[i].id) == l_True) {
+            if(rule[i].type == Literal::POS) hasMustBeTrueBody = true;
+            else if(rule[i].type != Literal::DNEG) trueBody = false;
+        }
+        else if(rule[i].type == Literal::POS || rule[i].type == Literal::DNEG) trueBody = false;
     }
     
     if(headAtoms >= 2) return;
     if(headAtoms == 0) {
-//        vec<Lit> lits;
-//        for(int i = 0; i < rule.size(); i++) lits.push(rule[i].toLit());
-//        addClause(lits);
+        vec<Lit> lits;
+        for(int i = 0; i < rule.size(); i++) lits.push(rule[i].toLit());
+        addClause(lits);
         rule.clear();
         return;
     }
-    if(!undefinedBody) {
+    if(!trueBody) {
         for(int i = 0; i < rule.size(); i++) {
             if(rule[i].head()) {
                 if(value(rule[i].id) != l_True) addClause(mkLit(rule[i].id));
@@ -474,6 +524,7 @@ void AspSolver::finalPropagation() {
         for(int i = 0; i < rule.size(); i++) {
             if(rule[i] == Literal(v, Literal::SHEAD)) continue;
             addClause(mkLit(rule[i].id, rule[i].type != Literal::POS && rule[i].type != Literal::DNEG));
+            if(rule[i].type == Literal::POS) supported[v] = false;
         }
         
         propagate();
@@ -486,6 +537,7 @@ void AspSolver::processComponents() {
     trace(asp_pre, 1, "Start processComponents()...");
     DepGraph dg;
     for(int i = 0; i < nVars(); i++) {
+        dg.add(i);
         if(value(i) == l_False) continue;
         if(supported[i]) continue;
 
@@ -507,64 +559,74 @@ void AspSolver::processComponents() {
     vec<vec<int> > components;
     bool tight;
     dg.sccs(atom2comp, components, tight);
+    assert(components.size() > 0);
+    vec<Lit> supp;
     for(int i = 0; i < components.size(); i++) {
         vec<int>& c = components[i];
         if(c.size() == 1) { 
             if(value(i) == l_False) continue;
             if(supported[i]) continue;
-            completion(c[0]);
+            completion(c[0], supp);
             continue;
         }
         
         trace(asp_pre, 2, "Processing recursive component " << i);
         for(int j = 0; j < c.size(); j++) {
-            completion(c[j]);
+            completion(c[j], supp);
+            setFrozen(c[j], true);
             
             unfounded.push(c[j]);
-            vec<vec<Literal>*>& heads = occ[Literal::SHEAD][j];
+            vec<vec<Literal>*>& heads = occ[Literal::SHEAD][c[j]];
             for(int k = 0; k < heads.size(); k++) {
                 vec<Literal>* rule = new vec<Literal>();
-                heads[k]->moveTo(*rule);
+                heads[k]->copyTo(*rule);
                 recursiveRules.push(rule);
+                body.push(supp.size() == 0 ? mkLit(c[j]) : supp[k]);
+                recBody.push();
+                isBodyOf[sign(body[body.size()-1])][var(body[body.size()-1])].push(recursiveRules.size()-1);
                 withoutSourcePointer.push(0);
                 possibleSourcePointerOf.push(c[j]);
                 possibleSourcePointers[c[j]].push(recursiveRules.size()-1);
                 for(int idx = 0; idx < rule->size(); idx++) {
                     Literal lit = rule->operator[](idx);
-                    if(lit == Literal(c[j], Literal::SHEAD) || lit == Literal(c[j], Literal::UHEAD)) continue;
+                    if(lit == Literal(c[j], Literal::SHEAD)) continue;
+                    if(lit == Literal(c[j], Literal::UHEAD)) continue;
                     inBody[lit.type == Literal::POS || lit.type ==  Literal::DNEG ? 1 : 0][lit.id].push(recursiveRules.size()-1);
-                    if(lit.type == Literal::POS && atom2comp[lit.id] == i) { 
+                    if(lit.type == Literal::POS && atom2comp[lit.id] == i) {
                         inRecBody[lit.id].push(recursiveRules.size()-1); 
                         withoutSourcePointer[withoutSourcePointer.size()-1]++;
+                        recBody[recBody.size()-1].push(lit.id);
                     }
                 }
             }
         }
-        findSourcePointers();
+        if(!findSourcePointers()) ok = false;
     }
 }
 
-void AspSolver::completion(Var i) {
-    trace(asp_pre, 3, "Completion of atom " << i);
+void AspSolver::completion(Var i, vec<Lit>& supp) {
+    trace(asp_pre, 3, "Completion of atom " << i << "/" << getName(i));
+    supp.clear();
     assert(value(i) != l_False);
     assert(!supported[i]);
     vec<vec<Literal>*>& heads = occ[Literal::SHEAD][i];
     assert_msg(heads.size() > 0, "Atom " << getName(i) << " has " << heads.size() << " definitions.");
     trace(asp_pre, 5, "Processing atom " << i << " with " << heads.size() << " possibly supporting rules.");
     if(heads.size() == 1) {
-        vec<Literal>& rule = *heads[0];
+        if(value(i) == l_True) return;
         assert(!supported[i]);
         assert(value(i) == l_Undef);
+        vec<Literal>& rule = *heads[0];
+        vec<Lit> lits;
         for(int j = 0; j < rule.size(); j++) {
-            if(rule[j] != Literal(i, Literal::SHEAD)) {
-                addClause(~mkLit(i), ~rule[j].toLit());
-            }
+            lits.push(rule[j].toLit());
+            if(rule[j] == Literal(i, Literal::SHEAD)) continue;
+            addClause(~mkLit(i), ~rule[j].toLit());
         }
+        addClause(lits);
         return;
     }
     
-    vec<Lit> supp;
-    supp.push(~mkLit(i));
     for(int j = 0; j < heads.size(); j++) {
         vec<Literal>& rule = *heads[j];
         assert(rule.size() >= 2);
@@ -572,20 +634,24 @@ void AspSolver::completion(Var i) {
         if(rule.size() == 2)
             aux = rule[0] == Literal(i, Literal::SHEAD) ? ~rule[1].toLit() : ~rule[0].toLit();
         else {
-            aux = ~mkLit(nVars());
+            aux = mkLit(nVars());
             newVar();
+            addClause(~aux, mkLit(i));
             vec<Lit> lits;
-            lits.push(~aux);
-            for(int k = 0; k < rule.size(); i++) {
+            lits.push(aux);
+            for(int k = 0; k < rule.size(); k++) {
                 if(rule[k] == Literal(i, Literal::SHEAD)) continue;
                 lits.push(rule[k].toLit());
-                addClause(aux, ~rule[k].toLit());
+                addClause(~aux, ~rule[k].toLit());
             }
             addClause(lits);
             assert(nextToPropagate == nextToPropagateByUnit());
         }
         supp.push(aux);
     }
+    supp.push(~mkLit(i));
+    addClause(supp);
+    supp.pop();
 }
 
 CRef AspSolver::morePropagate() {
@@ -599,58 +665,281 @@ CRef AspSolver::morePropagate() {
 }
 
 CRef AspSolver::morePropagate(Lit lit) {
-    trace(asp, 10, "Propagating " << lit << "@" << level(var(lit)) << " (atom " << getName(var(lit)) << ")");
+    trace(asp, 10, "Propagating " << lit << "@" << level(var(lit)) << " (atom " << var(lit) << "/" << getName(var(lit)) << ")");
 
-    vec<int> unfounded;
-    vec<int>& in = inBody[1-sign(lit)][var(lit)];
+    tagCalls++;
+    assert(unfounded.size() == 0);
+    
+    vec<int>& in = isBodyOf[1-sign(lit)][var(lit)];
     for(int i = 0; i < in.size(); i++) {
         int ruleIdx = in[i];
         int head = possibleSourcePointerOf[ruleIdx];
-        if(sourcePointer[head] == ruleIdx) unfounded.push(head);
+        if(value(mkLit(head)) == l_False) continue;
+        if(sourcePointer[head] == ruleIdx) {
+            int last = unfounded.size();
+            tag[head] = tagCalls;
+            unfounded.push(head);
+            do{
+                int a = unfounded[last++];
+                trace(asp, 15, "Atom " << a << "/" << getName(a) << " unfounded");
+                for(int k = 0; k < inRecBody[a].size(); k++) {
+                    if(value(mkLit(possibleSourcePointerOf[inRecBody[a][k]])) == l_False) continue;
+                    withoutSourcePointer[inRecBody[a][k]]++;
+                    if(tag[possibleSourcePointerOf[inRecBody[a][k]]] != tagCalls) {
+                        tag[possibleSourcePointerOf[inRecBody[a][k]]] = tagCalls;
+                        unfounded.push(possibleSourcePointerOf[inRecBody[a][k]]);
+                    }
+                }
+            }while(last < unfounded.size());
+        }
     }
-    findSourcePointers();
+    
+//    vec<int>& in = inBody[1-sign(lit)][var(lit)];
+//    for(int i = 0; i < in.size(); i++) {
+//        cout << i << endl;
+//        int ruleIdx = in[i];
+//        int head = possibleSourcePointerOf[ruleIdx];
+//        if(sourcePointer[head] == ruleIdx) {
+//            int last = unfounded.size();
+//            unfounded.push(head);
+//            trace(asp, 15, "Atom " << head << "/" << getName(head) << " unfounded");
+//            do{
+//                int a = unfounded[last];
+//                tag[a] = tagCalls;
+//                for(int k = 0; k < inRecBody[a].size(); k++) {
+//                    withoutSourcePointer[inRecBody[a][k]]++;
+//                    if(tag[possibleSourcePointerOf[inRecBody[a][k]]] != tagCalls)
+//                        ;//unfounded.push(tag[possibleSourcePointerOf[inRecBody[a][k]]]);
+//                }
+//            }while(++last < unfounded.size());
+//        }
+//    }
+    if(!findSourcePointers()) return CRef_MoreConflict;
 
     return CRef_Undef;
 }
 
-void AspSolver::findSourcePointers() {
+bool AspSolver::findSourcePointers() {
+    trace(asp, 10, "Find source pointers for " << unfounded);
     tagCalls++;
     for(int i = 0; i < unfounded.size(); i++) {
         int atom = unfounded[i];
+        assert(value(atom) != l_False);
         if(tag[atom] == tagCalls) continue;
         vec<int>& poss = possibleSourcePointers[atom];
         for(int j = 0; j < poss.size(); j++) {
-            if(withoutSourcePointer[poss[j]] == 0) {
-                vec<int> stackA;
-                vec<int> stackR;
-                stackA.push(atom);
-                stackR.push(poss[j]);
-                
-                do{
-                    int a = stackA[stackA.size()-1];
-                    sourcePointer[a] = stackR[stackR.size()-1];
-                    tag[a] = tagCalls;
-                    stackA.shrink(1);
-                    stackR.shrink(1);
-                    trace(asp_pre, 10, "New source pointer for atom " << a << ": " << sourcePointer[a]);
-                    for(int k = 0; k < inRecBody[a].size(); k++) {
-                        if(--withoutSourcePointer[inRecBody[a][k]] == 0 && tag[possibleSourcePointerOf[inRecBody[a][k]]] != tagCalls) {
-                            stackA.push(possibleSourcePointerOf[inRecBody[a][k]]);
-                            stackR.push(inRecBody[a][k]);
-                        }
+            if(value(body[poss[j]]) == l_False) continue;
+            if(withoutSourcePointer[poss[j]] != 0) continue;
+            
+            vec<int> stackA;
+            vec<int> stackR;
+            tag[atom] = tagCalls;
+            stackA.push(atom);
+            stackR.push(poss[j]);
+            
+            do{
+                int a = stackA[stackA.size()-1];
+                sourcePointer[a] = stackR[stackR.size()-1];
+                stackA.shrink(1);
+                stackR.shrink(1);
+                trace(asp, 15, "New source pointer for atom " << a << "/" << getName(a) << ": " << sourcePointer[a]);
+                for(int k = 0; k < inRecBody[a].size(); k++) {
+                    if(value(possibleSourcePointerOf[inRecBody[a][k]]) == l_False) continue;
+                    if(--withoutSourcePointer[inRecBody[a][k]] == 0 && tag[possibleSourcePointerOf[inRecBody[a][k]]] != tagCalls) {
+                        tag[possibleSourcePointerOf[inRecBody[a][k]]] = tagCalls;
+                        stackA.push(possibleSourcePointerOf[inRecBody[a][k]]);
+                        stackR.push(inRecBody[a][k]);
                     }
-                }while(stackA.size() > 0);
+                }
+            }while(stackA.size() > 0);
 
-                break;
-            }
+            break;
         }
     }
     
+    // remove founded atoms
+    int j = 0;
     for(int i = 0; i < unfounded.size(); i++) {
         int atom = unfounded[i];
         if(tag[atom] == tagCalls) continue;
-        cout << "Unfounded: " << atom << endl; // TODO
+        unfounded[j++] = unfounded[i];
         withoutSourcePointer[sourcePointer[atom]] = 0;
+    }
+    unfounded.shrink_(unfounded.size()-j);
+    
+    // look for inconsistency
+    for(int i = 0; i < unfounded.size(); i++) {
+        if(value(unfounded[i]) == l_Undef) continue;
+        assert(value(unfounded[i]) == l_True);
+        trace(asp, 15, "True atom is unfounded: " << unfounded[i] << "/" << getName(unfounded[i]));
+        int tmp = unfounded[i];
+        unfounded[i] = unfounded[0];
+        unfounded[0] = tmp;
+        break;
+    }
+    
+    // identify small unfounded sets and reasons
+    tagCalls++;
+    for(int i = 0; i < unfounded.size(); i++) {
+        if(tag[unfounded[i]] == tagCalls) continue;
+        tag[unfounded[i]] = tagCalls;
+        
+        moreReasonWFVec.push();
+        vec<Lit>& reasons = moreReasonWFVec.last();
+        vec<int> uSet;
+        uSet.push(unfounded[i]);
+        int processed = 0;
+        while(processed < uSet.size()) {
+            int atom = uSet[processed++];
+            vec<int>& poss = possibleSourcePointers[atom];
+            for(int j = 0; j < poss.size(); j++) {
+                if(value(body[poss[j]]) == l_False) {
+                    reasons.push(body[poss[j]]);
+                    continue;
+                }
+                vec<int>& rec = recBody[poss[j]];
+                assert(rec.size() > 0);
+                int toBeAdd = -1;
+                for(int i = 0; i < rec.size(); i++) {
+                    if(tag[rec[i]] == tagCalls) {
+                        if(value(rec[i]) != l_False) continue;
+                        reasons.push(mkLit(rec[i]));
+                        toBeAdd = -1;
+                        break;
+                    }
+                    toBeAdd = rec[i];
+                }
+                if(toBeAdd != -1) {
+                    uSet.push(toBeAdd);
+                    tag[toBeAdd] = tagCalls;
+                }
+            }
+        }
+        trace(asp, 15, "Unfounded set (atoms) " << uSet << " with reasons (literals) " << reasons);
+        for(int j = 0; j < uSet.size(); j++) {
+            int v = uSet[j];
+            trace(asp, 20, "Inferring atom " << v << "/" << getName(v) << "@" << decisionLevel() << " from unfounded set");
+            assert(moreReasonWF[v] == -1);
+            moreReasonWF[v] = moreReasonWFVec.size()-1;
+            moreReasonVars.push(v);
+            if(value(v) == l_True) {
+                moreConflictLit = ~mkLit(v);
+                moreConflictWF = moreReasonWFVec.size() - 1;
+                unfounded.clear();
+                return false;
+            }
+            else uncheckedEnqueue(~mkLit(v));
+        }
+    }
+    
+    unfounded.clear();
+    return true;
+}
+
+bool AspSolver::moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+    if(PseudoBooleanSolver::moreReason(lit, out_learnt, selectors, pathC)) return true;
+    if(moreReasonWF[var(lit)] != -1) { _moreReasonWF(lit, out_learnt, selectors, pathC); return true; }
+    return false;
+}
+
+void AspSolver::_moreReasonWF(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+    assert(decisionLevel() != 0);
+    assert(reason(var(lit)) == CRef_Undef);
+    vec<Lit>& reasons = moreReasonWFVec[moreReasonWF[var(lit)]];
+    for(int i = 0; i < reasons.size(); i++) {
+        Lit q = reasons[i];
+        assert(value(q) == l_False);
+        assert(level(var(q)) <= level(var(lit)));
+        
+        if(seen[var(q)]) continue;
+        if(level(var(q)) == 0) continue;
+        
+        if(!isSelector(var(q)))
+            varBumpActivity(var(q));
+        
+        seen[var(q)] = 1;
+        
+        if(level(var(q)) >= decisionLevel()) {
+            pathC++;
+            // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+            if(!isSelector(var(q)) && (reason(var(q)) != CRef_Undef) && ca[reason(var(q))].learnt())
+                lastDecisionLevel.push(q);
+        }
+        else {
+            if(isSelector(var(q))) {
+                assert(value(q) == l_False);
+                selectors.push(q);
+            }
+            else 
+                out_learnt.push(q);
+        }
+    }        
+}
+
+bool AspSolver::moreReason(Lit lit) {
+    if(moreReasonWF[var(lit)] != -1) { _moreReasonWF(lit); return true; }
+    return false;
+}
+
+void AspSolver::_moreReasonWF(Lit lit) {
+    assert(decisionLevel() != 0);
+    assert(reason(var(lit)) == CRef_Undef);
+    vec<Lit>& reasons = moreReasonWFVec[moreReasonWF[var(lit)]];
+    for(int i = 0; i < reasons.size(); i++) {
+        Lit l = reasons[i];
+        assert(value(l) == l_False);
+        assert(level(var(l)) <= level(var(lit)));
+        if(level(var(l)) == 0) continue;
+        seen[var(l)] = 1;
+    }
+}
+
+bool AspSolver::moreConflict(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+    if(moreConflictWF != -1) { _moreConflictWF(out_learnt, selectors, pathC); return true; }
+    return false;
+}
+    
+void AspSolver::_moreConflictWF(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC) {
+    assert(decisionLevel() != 0);
+    
+    if(!seen[var(moreConflictLit)] && level(var(moreConflictLit)) > 0) {
+        if(!isSelector(var(moreConflictLit))) varBumpActivity(var(moreConflictLit));
+        seen[var(moreConflictLit)] = 1;
+        assert(level(var(moreConflictLit)) == decisionLevel());
+        pathC++;
+        // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+        if(!isSelector(var(moreConflictLit)) && (reason(var(moreConflictLit)) != CRef_Undef) && ca[reason(var(moreConflictLit))].learnt())
+            lastDecisionLevel.push(moreConflictLit);
+    }
+    
+    vec<Lit>& reasons = moreReasonWFVec[moreConflictWF];
+    moreConflictWF = -1;
+    for(int i = 0; i < reasons.size(); i++) {
+        Lit q = reasons[i];
+        assert(value(q) == l_False);
+        
+        if(seen[var(q)]) continue;
+        if(level(var(q)) == 0) continue;
+        
+        if(!isSelector(var(q)))
+            varBumpActivity(var(q));
+        
+        seen[var(q)] = 1;
+        
+        if(level(var(q)) >= decisionLevel()) {
+            pathC++;
+            // UPDATEVARACTIVITY trick (see competition'09 companion paper)
+            if(!isSelector(var(q)) && (reason(var(q)) != CRef_Undef) && ca[reason(var(q))].learnt())
+                lastDecisionLevel.push(q);
+        }
+        else {
+            if(isSelector(var(q))) {
+                assert(value(q) == l_False);
+                selectors.push(q);
+            }
+            else 
+                out_learnt.push(q);
+        }
     }
 }
 
@@ -663,5 +952,24 @@ void AspSolver::clearParsingStructures() {
     
     { vec<Var> tmp; supportInference.moveTo(tmp); }
 }
+
+void AspSolver::onCancel() {
+    MaxSatSolver::onCancel();
+    
+    trace(asp, 2, "Cancel until level " << decisionLevel());
+    while(nextToPropagate > nextToPropagateByUnit()) { 
+        int v = var(mainTrail(--nextToPropagate));
+        propagated[v] = false;
+    }
+
+    while(moreReasonVars.size() > 0) {
+        Var v = moreReasonVars.last();
+        if(level(v) <= decisionLevel()) break;
+        moreReasonVars.pop();
+        if(moreReasonWF[v] < moreReasonWFVec.size()-1) moreReasonWFVec.pop();
+        moreReasonWF[v] = -1;
+    }
+}
+
 
 } // namespace aspino

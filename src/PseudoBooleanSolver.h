@@ -94,14 +94,14 @@ protected:
     CRef checkInference(Lit lit, CardinalityConstraint& wc);
     
     virtual bool moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
-    bool _moreReasonCC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
-    bool _moreReasonWC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    void _moreReasonCC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    void _moreReasonWC(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
     virtual bool moreReason(Lit lit);
-    bool _moreReasonCC(Lit lit);
-    bool _moreReasonWC(Lit lit);
+    void _moreReasonCC(Lit lit);
+    void _moreReasonWC(Lit lit);
     virtual bool moreConflict(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
-    bool _moreConflictCC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
-    bool _moreConflictWC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    void _moreConflictCC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    void _moreConflictWC(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
     virtual void onCancel();
     
     vec<CardinalityConstraint*> cconstraints;

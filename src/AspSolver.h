@@ -68,6 +68,12 @@ public:
     
 protected:
     virtual CRef morePropagate();
+    virtual bool moreReason(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    void _moreReasonWF(Lit lit, vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    virtual bool moreReason(Lit lit);
+    void _moreReasonWF(Lit lit);
+    virtual bool moreConflict(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
+    void _moreConflictWF(vec<Lit>& out_learnt, vec<Lit>& selectors, int& pathC);
     
 private:
     vec<vec<Literal>*> program;
@@ -86,6 +92,9 @@ private:
     int nModels;
     
     vec<vec<Literal>*> recursiveRules;
+    vec<Lit> body;
+    vec<vec<int> > recBody;
+    vec<vec<int> > isBodyOf[2];
     vec<int> withoutSourcePointer;
     vec<int> possibleSourcePointerOf;
     vec<int> sourcePointer;
@@ -94,14 +103,24 @@ private:
     vec<vec<int> > inRecBody;
     vec<int> unfounded;
     
+    vec<int> moreReasonWF;
+    vec<Var> moreReasonVars;
+    vec<vec<Lit> > moreReasonWFVec;
+//    WeightConstraint* moreConflictWC;
+//    Lit moreConflictLit;
+    int moreConflictWF;
+
+    
     CRef morePropagate(Lit lit);
-    void findSourcePointers();
+    bool findSourcePointers();
     
     int getId(int input_id);
     string getName(int atom) const;
     
     void parseNormalRule(Glucose::StreamBuffer& in);
     void parseChoiceRule(Glucose::StreamBuffer& in);
+    void parseCountRule(Glucose::StreamBuffer& in);
+    void parseSumRule(Glucose::StreamBuffer& in);
 
     void propagate();
     void propagateTrue(Var v);
@@ -113,8 +132,10 @@ private:
     
     void finalPropagation();
     void processComponents();
-    void completion(Var i);
+    void completion(Var i, vec<Lit>& supp);
     void clearParsingStructures();
+    
+    virtual void onCancel();
 };
     
 } // namespace aspino

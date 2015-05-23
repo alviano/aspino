@@ -31,6 +31,7 @@ public:
     DepGraph();
     ~DepGraph();
     
+    void add(int node);
     void add(int from, int to);
     void sccs(vec<int>& atom2comp, vec<vec<int> >& components, bool& tight);
     
