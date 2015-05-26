@@ -49,6 +49,23 @@ Literal::Literal(int id_, int type_)
     assert(SHEAD <= type && type <= DNEG);
 }
 
+ostream& operator<<(ostream& out, const Literal& lit) {
+    switch(lit.type) {
+        case Literal::SHEAD: return out << "[SH]" << lit.id;
+        case Literal::UHEAD: return out << "[UH]" << lit.id;
+        case Literal::POS: return out << "[P]" << lit.id;
+        case Literal::NEG: return out << "[N]" << lit.id;
+        case Literal::DNEG: return out << "[D]" << lit.id;
+        default: assert(0);
+    }
+}
+
+ostream& operator<<(ostream& out, const Sum& sum) {
+    out << "#sum{";
+    for(int i = 0; i < sum.body.size(); i++) out << sum.weights[i] << " : " << sum.body[i] << "; ";
+    return out << "} >= " << sum.bound;
+}
+
 
 AspSolver::AspSolver() {
     tagCalls = 0;
@@ -68,17 +85,22 @@ void AspSolver::parseNormalRule(Glucose::StreamBuffer& in) {
     int size = parseInt(in);
     int neg = parseInt(in);
     
-
     tagCalls += 3;
     if(head != 1) {
-        rule->push(Literal(getId(head), Literal::SHEAD));
         if(supported[getId(head)]) {
             trace(asp_pre, 8, "Already supported head. Skip this rule.");
             delete rule;
             while(size-- > 0) parseInt(in);
             return;
         }
-        tag[getId(head)] = tagCalls - 2;
+        if(value(getId(head)) == l_False) {
+            trace(asp_pre, 8, "False head. Replace by contraint.");
+            head = 1;
+        }
+        else {
+            rule->push(Literal(getId(head), Literal::SHEAD));
+            tag[getId(head)] = tagCalls - 2;
+        }
     }
     
     while(size-- > 0) {
@@ -132,12 +154,12 @@ void AspSolver::parseNormalRule(Glucose::StreamBuffer& in) {
         }
     }
     
-    vec<Lit> lits;
-    for(int i = 0; i < rule->size(); i++) {
-        Literal lit = rule->operator[](i);
-        lits.push(lit.toLit());
-    }
-    addClause(lits);
+//    vec<Lit> lits;
+//    for(int i = 0; i < rule->size(); i++) {
+//        Literal lit = rule->operator[](i);
+//        lits.push(lit.toLit());
+//    }
+//    addClause(lits);
 }
 
 void AspSolver::parseChoiceRule(Glucose::StreamBuffer& in) {
@@ -220,41 +242,91 @@ void AspSolver::parseChoiceRule(Glucose::StreamBuffer& in) {
 
 void AspSolver::parseCountRule(Glucose::StreamBuffer& in) {
     trace(asp_pre, 5, "Parsing count rule...");
-    int head = parseInt(in);
-    assert(head != 1);
-    vec<Literal>* rule = new vec<Literal>();
+    Sum* sum = new Sum();
+    sum->head = parseInt(in);
+    assert(sum->head != 1);
     
     int size = parseInt(in);
     int neg = parseInt(in);
-    int bound = parseInt(in);    
+    sum->bound = parseInt(in);    
 
     while(size-- > 0) {
         int atom = getId(parseInt(in));
-        if(neg-- > 0) rule->push(Literal(atom, Literal::NEG));
-        else rule->push(Literal(atom, Literal::POS));
+        if(neg-- > 0) sum->body.push(Literal(atom, Literal::NEG));
+        else sum->body.push(Literal(atom, Literal::POS));
+        sum->weights.push(1);
     }
-    delete rule;
+    
+    add(sum);
 }
 
 void AspSolver::parseSumRule(Glucose::StreamBuffer& in) {
     trace(asp_pre, 5, "Parsing sum rule...");
-    int head = parseInt(in);
-    assert(head != 1);
-    vec<Literal>* rule = new vec<Literal>();
+    Sum* sum = new Sum();
+    sum->head = parseInt(in);
+    assert(sum->head != 1);
     
-    int bound = parseInt(in);    
+    sum->bound = parseInt(in);    
     int size = parseInt(in);
     int neg = parseInt(in);
 
     while(size-- > 0) {
         int atom = getId(parseInt(in));
-        if(neg-- > 0) rule->push(Literal(atom, Literal::NEG));
-        else rule->push(Literal(atom, Literal::POS));
+        if(neg-- > 0) sum->body.push(Literal(atom, Literal::NEG));
+        else sum->body.push(Literal(atom, Literal::POS));
     }
     
-    vec<int> weights;
-    while(weights.size() < rule->size()) weights.push(parseInt(in));
-    delete rule;
+    for(int i = 0; i < sum->body.size(); i++) sum->weights.push(parseInt(in));
+
+    add(sum);
+}
+
+void AspSolver::add(Sum* sum) {
+    sumId[sum->head.id] = sum;
+    
+    // remove duplicates and false literals (and true negative literals)
+    tagCalls += 2;
+    int k = 0;
+    for(int i = 0; i < sum->body.size(); i++) {
+        Literal lit = sum->body[i];
+        if(lit.type == Literal::NEG) {
+            if(value(lit.id) == l_True) continue;
+            if(value(lit.id) == l_False) { sum->bound -= sum->weights[i]; continue; }
+        }
+        else {
+            assert(lit.type == Literal::POS);
+            if(value(lit.id) == l_False) continue;
+            if(value(lit.id) == l_True) { sum->posTrueWeight += sum->weights[i]; }
+        }
+        
+        unsigned tmp = tagCalls - (sum->body[i].type == Literal::POS ? 1 : 0);
+        if(tag[sum->body[i].id] == tmp) {
+            for(int j = 0; j < i; j++) {
+                if(sum->body[j] == sum->body[i]) {
+                    sum->weights[j] += sum->weights[i];
+                    break;
+                }
+            }
+            continue;
+        }
+        
+        tag[sum->body[i].id] = tmp;
+        sum->body[k] = sum->body[i];
+        sum->weights[k++] = sum->weights[i];
+    }
+    sum->body.shrink(sum->body.size()-k);
+    sum->weights.shrink(sum->weights.size()-k);
+    
+    if(sum->bound <= 0) {
+        supported[sum->head.id] = true;
+        addClause(mkLit(sum->head.id));
+        delete sum;
+        return;
+    }
+    if(sum->bound <= sum->posTrueWeight) addClause(mkLit(sum->head.id));
+    
+    for(int i = 0; i < sum->body.size(); i++) sumOcc[Sum::type2idx(sum->body[i].type)][sum->body[i].id].push(sum);
+    sums.push(sum);
 }
 
 void AspSolver::parse(gzFile in_) {
@@ -299,7 +371,9 @@ int AspSolver::getId(int input_id) {
     assert(idmap.size() == occ[0].size() && idmap.size() == occ[1].size() && idmap.size() == occ[2].size() && idmap.size() == occ[3].size() && idmap.size() == occ[4].size());
     while(input_id >= idmap.size()) {
         idmap.push(-1);
-        for(int i = Literal::SHEAD; i <= Literal::DNEG; i++) occ[i].push();
+        for(int i = 0; i < 5; i++) occ[i].push();
+        sumId.push(NULL);
+        for(int i = 0; i < 2; i++) sumOcc[i].push();
     }
     assert(idmap.size() == occ[0].size() && idmap.size() == occ[1].size() && idmap.size() == occ[2].size() && idmap.size() == occ[3].size() && idmap.size() == occ[4].size());
     if(idmap[input_id] == -1) { 
@@ -391,6 +465,16 @@ void AspSolver::propagateTrue(Var v) {
 
     for(int i = 0; i < occ[Literal::NEG][v].size(); i++)
         onFalseBody(*(occ[Literal::NEG][v][i]));
+    
+    if(sumId[v] != NULL) onTrueHead(*sumId[v]);
+
+    vec<Sum*>& posSum = sumOcc[Sum::type2idx(Literal::POS)][v];
+    for(int i = 0; i < posSum.size(); i++)
+        onTrueBody(*posSum[i], Literal(v, Literal::POS));
+
+    vec<Sum*>& negSum = sumOcc[Sum::type2idx(Literal::NEG)][v];
+    for(int i = 0; i < negSum.size(); i++)
+        onFalseBody(*negSum[i], Literal(v, Literal::NEG));
 }
 
 void AspSolver::propagateFalse(Var v) {
@@ -401,7 +485,6 @@ void AspSolver::propagateFalse(Var v) {
     for(int i = 0; i < occ[Literal::UHEAD][v].size(); i++)
         onFalseHead(*(occ[Literal::UHEAD][v][i]), Literal(v, Literal::UHEAD));
 
-
     for(int i = 0; i < occ[Literal::NEG][v].size(); i++)
         onTrueBody(*(occ[Literal::NEG][v][i]), Literal(v, Literal::NEG));
 
@@ -409,6 +492,16 @@ void AspSolver::propagateFalse(Var v) {
         onFalseBody(*(occ[Literal::POS][v][i]));
     for(int i = 0; i < occ[Literal::DNEG][v].size(); i++)
         onFalseBody(*(occ[Literal::DNEG][v][i]));
+
+    if(sumId[v] != NULL) onFalseHead(*sumId[v]);
+
+    vec<Sum*>& posSum = sumOcc[Sum::type2idx(Literal::POS)][v];
+    for(int i = 0; i < posSum.size(); i++)
+        onFalseBody(*posSum[i], Literal(v, Literal::POS));
+
+    vec<Sum*>& negSum = sumOcc[Sum::type2idx(Literal::NEG)][v];
+    for(int i = 0; i < negSum.size(); i++)
+        onTrueBody(*negSum[i], Literal(v, Literal::NEG));
 }
 
 void AspSolver::onTrueHead(vec<Literal>& rule, Literal headAtom) {
@@ -468,7 +561,7 @@ void AspSolver::onTrueBody(vec<Literal>& rule, Literal bodyAtom) {
         rule.clear();
         return;
     }
-    if(!trueBody) {
+    if(trueBody) {
         for(int i = 0; i < rule.size(); i++) {
             if(rule[i].head()) {
                 if(value(rule[i].id) != l_True) addClause(mkLit(rule[i].id));
@@ -494,6 +587,55 @@ void AspSolver::onFalseBody(vec<Literal>& rule) {
     rule.clear();
 }
 
+void AspSolver::onTrueHead(Sum& rule) {
+    // TODO
+}
+
+void AspSolver::onFalseHead(Sum& rule) {
+    // TODO
+    // CHECK: also on the other propagation, we must take care of other inferences
+}
+
+void AspSolver::onTrueBody(Sum& rule, Literal lit) {
+    if(rule.bound <= 0) return;
+    int j = 0;
+    for(int i = 0; i < rule.body.size(); i++) {
+        if(rule.body[i] == lit) {
+            if(lit.type == Literal::NEG) {
+                rule.bound -= rule.weights[i];
+                continue;
+            }
+            else rule.posTrueWeight += rule.weights[i];
+        }
+        rule.body[j++] = rule.body[i];
+        rule.weights[j++] = rule.weights[i];
+    }
+    rule.shrink(rule.size()-j);
+    if(rule.bound <= 0) {
+        addClause(rule.head.toLit());
+        supported[rule.head.id] = true;
+    }
+    else if(rule.bound <= rule.posTrueWeight)
+        addClause(rule.head.toLit());
+}
+
+void AspSolver::onFalseBody(Sum& rule, Literal lit) {
+    if(rule.bound <= 0) return;
+    int j = 0;
+    int ub = 0;
+    for(int i = 0; i < rule.body.size(); i++) {
+        if(rule.body[i] == lit) continue;
+        rule.body[j++] = rule.body[i];
+        rule.weights[j++] = rule.weights[i];
+        ub += rule.weights[i];
+    }
+    rule.shrink(rule.size()-j);
+    if(rule.bound > ub) {
+        addClause(~rule.head.toLit());
+        rule.bound = 0;
+    }
+}
+
 void AspSolver::finalPropagation() {
     trace(asp_pre, 1, "Start finalPropagation()...");
     assert(nextToPropagate == nextToPropagateByUnit());
@@ -502,13 +644,18 @@ void AspSolver::finalPropagation() {
     for(int i = 0; i < nVars(); i++) {
         if(supported[i]) continue;
         if(value(i) == l_False) continue;
-        vec<vec<Literal>*>& heads = occ[Literal::SHEAD][i];
-        if(heads.size() == 0 || (heads.size() == 1 && value(i) == l_True)) supportInference.push(i);
+        if(hasSupportInference(i)) supportInference.push(i);
     }
     
     while(supportInference.size() > 0) {
         Var v = supportInference[supportInference.size()-1];
         supportInference.shrink(1);
+        
+        if(sumId[v] != NULL) {
+            assert(value(v) == l_True);
+            cout << "SKIP FOR NOW" << endl; //TODO
+            continue;
+        }
         
         vec<vec<Literal>*>& heads = occ[Literal::SHEAD][v];
         if(heads.size() == 0) {
@@ -531,6 +678,11 @@ void AspSolver::finalPropagation() {
     }
 }
 
+bool AspSolver::hasSupportInference(Var atom) const {
+    if(sumId[atom] != NULL) return value(atom) == l_True;
+    return occ[Literal::SHEAD][atom].size() == 0 || (occ[Literal::SHEAD][atom].size() == 1 && value(atom) == l_True);
+}
+
 void AspSolver::processComponents() {
     if(!ok) return;
     
@@ -540,6 +692,17 @@ void AspSolver::processComponents() {
         dg.add(i);
         if(value(i) == l_False) continue;
         if(supported[i]) continue;
+        
+        if(sumId[i] != NULL) {
+            Sum& sum = *sumId[i];
+            for(int j = 0; j < sum.body.size(); j++) {
+                if(sum.body[j].type == Literal::POS) {
+                    assert(i != sum.body[j].id);
+                    dg.add(i, sum.body[j].id);
+                }
+            }
+            continue;
+        }
 
         for(int o = Literal::SHEAD; o <= Literal::UHEAD; o++) {
             vec<vec<Literal>*>& heads = occ[o][i];
@@ -559,13 +722,12 @@ void AspSolver::processComponents() {
     vec<vec<int> > components;
     bool tight;
     dg.sccs(atom2comp, components, tight);
-    assert(components.size() > 0);
     vec<Lit> supp;
     for(int i = 0; i < components.size(); i++) {
         vec<int>& c = components[i];
         if(c.size() == 1) { 
-            if(value(i) == l_False) continue;
-            if(supported[i]) continue;
+            if(value(c[0]) == l_False) continue;
+            if(supported[c[0]]) continue;
             completion(c[0], supp);
             continue;
         }
@@ -609,6 +771,23 @@ void AspSolver::completion(Var i, vec<Lit>& supp) {
     supp.clear();
     assert(value(i) != l_False);
     assert(!supported[i]);
+    
+    if(sumId[i] != NULL) {
+        Sum& sum = *sumId[i];
+        trace(asp_pre, 5, "Processing sum atom " << i << ": " << sum);
+        WeightConstraint wc;
+        for(int j = 0; j < sum.size(); j++) {
+            wc.lits.push(~sum.body[j].toLit());
+            wc.coeffs.push(sum.weights[j]);
+        }
+        wc.lits.push(~sum.head.toLit());
+        wc.coeffs.push(sum.bound);
+        wc.bound = sum.bound;
+        addConstraint(wc);
+        return;
+    }
+        
+        
     vec<vec<Literal>*>& heads = occ[Literal::SHEAD][i];
     assert_msg(heads.size() > 0, "Atom " << getName(i) << " has " << heads.size() << " definitions.");
     trace(asp_pre, 5, "Processing atom " << i << " with " << heads.size() << " possibly supporting rules.");
@@ -631,8 +810,10 @@ void AspSolver::completion(Var i, vec<Lit>& supp) {
         vec<Literal>& rule = *heads[j];
         assert(rule.size() >= 2);
         Lit aux;
-        if(rule.size() == 2)
+        if(rule.size() == 2) {
             aux = rule[0] == Literal(i, Literal::SHEAD) ? ~rule[1].toLit() : ~rule[0].toLit();
+            addClause(rule[0].toLit(), rule[1].toLit());
+        }
         else {
             aux = mkLit(nVars());
             newVar();
@@ -645,7 +826,7 @@ void AspSolver::completion(Var i, vec<Lit>& supp) {
                 addClause(~aux, ~rule[k].toLit());
             }
             addClause(lits);
-            assert(nextToPropagate == nextToPropagateByUnit());
+//            assert(nextToPropagate == nextToPropagateByUnit()); //TODO:add it back
         }
         supp.push(aux);
     }
@@ -947,7 +1128,12 @@ void AspSolver::clearParsingStructures() {
     for(int i = 0; i < program.size(); i++) delete program[i];
     { vec<vec<Literal>*> tmp; program.moveTo(tmp); }
     
-    for(int i = 0; i < 5; i++) { vec<vec<vec<Literal>*> > tmp; occ[i].moveTo(tmp); }
+    for(int i = 0; i < sums.size(); i++) delete sums[i];
+    { vec<Sum*> tmp; sums.moveTo(tmp); }
+    
+    { vec<Sum*> tmp; sumId.moveTo(tmp); }
+
+    for(int i = 0; i < 7; i++) { vec<vec<vec<Literal>*> > tmp; occ[i].moveTo(tmp); }
     { vec<bool> tmp; supported.moveTo(tmp); }
     
     { vec<Var> tmp; supportInference.moveTo(tmp); }

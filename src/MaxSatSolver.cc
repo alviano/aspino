@@ -26,6 +26,7 @@ using Glucose::Map;
 
 Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-2|one-neg|one-wc|one-neg-wc|one-pmres|one-pmres-2|pmres|pmres-reverse|pmres-log|pmres-split-conj|kdyn");
 Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
+Glucose::BoolOption option_maxsat_bmo("MAXSAT", "maxsat-bmo", "Activate Boolean Multi-level Optimiation.", true);
 
 Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
 Glucose::BoolOption option_maxsat_saturate("MAXSAT", "maxsat-saturate", "Eliminate all cores of weight W before considering any core of level smaller than W.", false);
@@ -1015,6 +1016,19 @@ void MaxSatSolver::detectLevels() {
     }
     
     assert(levels.size() == 0);
+    if(!option_maxsat_bmo) {
+        weightOfPreviousLevel.push(0);
+        levels.push(new vec<Lit>());
+        weightOfPreviousLevel.push(0);
+        for(int i = 0; i < allWeights.size(); i++) {
+            int64_t w = allWeights[i];
+            vec<Lit>& v = *wMap[w];
+            for(int j = 0; j < v.size(); j++) levels.last()->push(v[j]);
+            weightOfPreviousLevel.last() += w * v.size();
+            delete wMap[w];
+        }
+        return;
+    }
     
     int64_t cumulative = 0;
     for(int i = 0; i < allWeights.size(); i++) {
@@ -1034,6 +1048,10 @@ void MaxSatSolver::detectLevels() {
         weightOfPreviousLevel.push(cumulative);
     }
     assert(weightOfPreviousLevel.size() == levels.size() + 1);
+//    cout << "levels: " << levels.size() << "; literals in each level (higher weight first):";
+//    for (int i = 0; i < levels.size(); i++) cout << " " << levels[i]->size();
+//    cout << endl;
+//    exit(-1);
 }
 
 } // namespace aspino

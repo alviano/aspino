@@ -26,6 +26,7 @@ using Glucose::Map;
 namespace aspino {
 
 class Literal {
+    friend ostream& operator<<(ostream& out, const Literal& lit);
 public:
     Literal(int id=0, int type=0);
     inline Literal(const Literal& init) : id(init.id), type(init.type) {}
@@ -48,6 +49,23 @@ public:
     static const int DNEG;
 
 private:
+};
+
+class Sum {
+    friend ostream& operator<<(ostream& out, const Sum& sum);
+public:
+    inline Sum() : bound(0), posTrueWeight(0) {}
+    
+    Literal head;
+    vec<Literal> body;
+    vec<long> weights;
+    long bound;
+    long posTrueWeight;
+    
+    inline int size() const { return body.size(); }
+    inline void shrink(int size) { body.shrink(size); weights.shrink(size); }
+    
+    static inline int type2idx(int type) { assert(type == Literal::POS || type == Literal::NEG); return type == Literal::POS ? 0 : 1; }
 };
 
 class AspSolver : public MaxSatSolver {
@@ -77,10 +95,13 @@ protected:
     
 private:
     vec<vec<Literal>*> program;
+    vec<Sum*> sums;
     
     vec<int> idmap;
     Map<int, string> namemap;
     vec<vec<vec<Literal>*> > occ[5];
+    vec<Sum*> sumId;
+    vec<vec<Sum*> > sumOcc[2];
     vec<unsigned> tag;
     unsigned tagCalls;
     
@@ -121,6 +142,8 @@ private:
     void parseChoiceRule(Glucose::StreamBuffer& in);
     void parseCountRule(Glucose::StreamBuffer& in);
     void parseSumRule(Glucose::StreamBuffer& in);
+    
+    void add(Sum* sum);
 
     void propagate();
     void propagateTrue(Var v);
@@ -129,6 +152,10 @@ private:
     void onFalseHead(vec<Literal>& rule, Literal headAtom);
     void onTrueBody(vec<Literal>& rule, Literal bodyAtom);
     void onFalseBody(vec<Literal>& rule);
+    void onTrueHead(Sum& rule);
+    void onFalseHead(Sum& rule);
+    void onTrueBody(Sum& rule, Literal lit);
+    void onFalseBody(Sum& rule, Literal lit);
     
     void finalPropagation();
     void processComponents();
@@ -136,6 +163,8 @@ private:
     void clearParsingStructures();
     
     virtual void onCancel();
+    
+    bool hasSupportInference(Var atom) const;
 };
     
 } // namespace aspino

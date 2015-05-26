@@ -56,10 +56,10 @@ void DepGraph::sccs(vec<int>& atom2comp, vec<vec<int> >& components, bool& tight
     vector<boost::graph_traits<boost::adjacency_list<> >::vertex_descriptor> root(boost::num_vertices(arcs));
     int n = boost::strong_components(arcs, &sccs[0] , boost::root_map(&root[0]).color_map(&color[0]).discover_time_map(&discover_time[0]));
 
-    assert(n > 1);
-    components.clear();
-    components.growTo(n-1);
     tight = true;
+    components.clear();
+    if(n == 0) return;
+    components.growTo(n-1);
     
     assert(sccs[0] == 0);
     for(int i = 1; i < static_cast<int>(sccs.size()); i++) {
