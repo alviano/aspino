@@ -26,7 +26,7 @@ using Glucose::Map;
 
 Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-2|one-neg|one-wc|one-neg-wc|one-pmres|one-pmres-2|pmres|pmres-reverse|pmres-log|pmres-split-conj|kdyn");
 Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
-Glucose::BoolOption option_maxsat_bmo("MAXSAT", "maxsat-bmo", "Activate Boolean Multi-level Optimiation.", true);
+Glucose::BoolOption option_maxsat_bmo("MAXSAT", "maxsat-bmo", "Activate Boolean Multi-level Optimiation.", false);
 
 Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
 Glucose::BoolOption option_maxsat_saturate("MAXSAT", "maxsat-saturate", "Eliminate all cores of weight W before considering any core of level smaller than W.", false);
@@ -1035,10 +1035,12 @@ void MaxSatSolver::detectLevels() {
         int64_t w = allWeights[i];
         if(w > cumulative) { levels.push(new vec<Lit>()); weightOfPreviousLevel.push(cumulative); }
         vec<Lit>& v = *wMap[w];
+//        cout << w << "*" << v.size() << " ";
         for(int j = 0; j < v.size(); j++) levels.last()->push(v[j]);
         cumulative += w * v.size();
         delete wMap[w];
     }
+//    cout << endl;
     weightOfPreviousLevel.push(cumulative);
     
     trace(maxsat, 1, "Detected " << levels.size() << " levels");
