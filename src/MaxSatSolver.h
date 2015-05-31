@@ -44,16 +44,12 @@ private:
     vec<Lit> softLiterals;
     vec<int64_t> weights;
     
-    vec<vec<Lit>*> levels;
-    vec<int64_t> weightOfPreviousLevel;
-    
     int lastSoftLiteral;
     int64_t firstLimit;
     
     void sameSoftVar(Lit soft, int64_t weight);
     
     void removeSoftLiteralsAtLevelZero();
-    void detectLevels();
     void preprocess();
     int64_t setAssumptions(int64_t limit);
     void solveCurrentLevel();
@@ -80,8 +76,6 @@ private:
 
     enum DisjunctCores {NO = 0, PRE, ALL};
     DisjunctCores disjcores;
-    
-    bool saturate;
     
     int numberOfCores;
     int sizeOfCores;

@@ -26,10 +26,8 @@ using Glucose::Map;
 
 Glucose::EnumOption option_maxsat_strat("MAXSAT", "maxsat-strat", "Set optimization strategy.", "one|one-2|one-neg|one-wc|one-neg-wc|one-pmres|one-pmres-2|pmres|pmres-reverse|pmres-log|pmres-split-conj|kdyn");
 Glucose::EnumOption option_maxsat_disjcores("MAXSAT", "maxsat-disjcores", "Set disjunct unsatisfiable cores policy.", "no|pre|all", 1);
-Glucose::BoolOption option_maxsat_bmo("MAXSAT", "maxsat-bmo", "Activate Boolean Multi-level Optimiation.", false);
 
 Glucose::BoolOption option_maxsat_printmodel("MAXSAT", "maxsat-print-model", "Print optimal model if found.", true);
-Glucose::BoolOption option_maxsat_saturate("MAXSAT", "maxsat-saturate", "Eliminate all cores of weight W before considering any core of level smaller than W.", false);
 
 Glucose::IntOption option_maxsat_tag("MAXSAT", "maxsat-tag", "Parameter for maxsat-strat.", 16, Glucose::IntRange(2, INT32_MAX));
 
@@ -69,7 +67,6 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0) {
     else if(strcmp(option_maxsat_disjcores, "all") == 0) disjcores = ALL;
     else assert(0);
     
-    saturate = option_maxsat_saturate;
     setIncrementalMode();
 }
 
@@ -245,22 +242,19 @@ lbool MaxSatSolver::solve() {
     upperbound = LONG_MAX;
     removeSoftLiteralsAtLevelZero();
     cout << "o " << lowerbound << endl;
-    detectLevels();
 
-    while(levels.size() > 0) {
-        solveCurrentLevel();
-        if(upperbound == LONG_MAX) { cout << "s UNSATISFIABLE" << endl; return l_False; }
-        
-        if(lowerbound == upperbound) break;
-        
-        cancelUntil(0);
-        for(int i = 0; i < softLiterals.size(); i++) {
-            addClause(softLiterals[i]);
-            trace(maxsat, 10, "Hardening of " << softLiterals[i] << " of weight " << weights[var(softLiterals[i])]);
-            weights[var(softLiterals[i])] = 0;
-        }
-    }
+//    preprocess();
+    
+    numberOfCores = sizeOfCores = 0;
 
+    lastSoftLiteral = disjcores == NO ? INT_MAX : nInVars();
+    firstLimit = LONG_MAX;
+    
+    solve_();
+    trace(maxsat, 2, "Bounds: [" << lowerbound << ":" << upperbound << "]");
+
+    if(upperbound == LONG_MAX) { cout << "s UNSATISFIABLE" << endl; return l_False; }
+        
     if(lowerbound < upperbound) {
         if(!ok) status = l_False;
         else PseudoBooleanSolver::solve();
@@ -274,49 +268,11 @@ lbool MaxSatSolver::solve() {
     
     assert(lowerbound == upperbound);
 
-    while(levels.size() > 0) { delete levels.last(); levels.pop(); }
-    
     assert(upperbound < LONG_MAX);
-//        trace(maxsat, 2, "Still no model! Try without assumptions...");
-//        assumptions.clear();
-//        PseudoBooleanSolver::solve();
-//        if(status == l_False) { cout << "s UNSATISFIABLE" << endl; return l_False; }
-//        updateUpperBound();
     
     cout << "s OPTIMUM FOUND" << endl;
     if(option_maxsat_printmodel) printModel();
     return l_True;
-}
-
-void MaxSatSolver::solveCurrentLevel() {
-    trace(maxsat, 1, "Solve level " << levels.size());
-    levels.last()->moveTo(softLiterals);
-    delete levels.last();
-    levels.pop();
-    weightOfPreviousLevel.pop();
-    
-//    preprocess();
-    
-    numberOfCores = sizeOfCores = 0;
-
-    lastSoftLiteral = disjcores == NO ? INT_MAX : nVars();
-    firstLimit = LONG_MAX;
-    
-    int iteration = 1;
-
-    trace(maxsat, 2, "Iteration " << iteration);
-    solve_();
-    trace(maxsat, 2, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
-
-    if(status == l_False) return;
-
-    while(lastSoftLiteral < nVars()) {
-        iteration++;
-        lastSoftLiteral = disjcores == ALL ? nVars() : INT_MAX;
-        trace(maxsat, 2, "Iteration " << iteration);
-        solve_();
-        trace(maxsat, 2, "Bounds after iteration " << iteration << ": [" << lowerbound << ":" << upperbound << "]");
-    }
 }
 
 void MaxSatSolver::solve_() {
@@ -339,19 +295,20 @@ void MaxSatSolver::solve_() {
         if(status != l_False) {
             if(status == l_True) updateUpperBound();
             
-            if(saturate && lastSoftLiteral < nVars()) {
-                lastSoftLiteral = nVars();
-                trace(maxsat, 8, "Continue on limit " << limit << " considering " << (nVars() - lastSoftLiteral) << " more literals");
-                continue;
-            }
-            
             if(nextLimit == limit) {
                 trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " No other limit to try");
                 return;
             }
             
+            if(lastSoftLiteral == nInVars() && nInVars() < nVars()) {
+                lastSoftLiteral = disjcores == ALL ? nVars() : INT_MAX;
+                trace(maxsat, 4, "Continue on limit " << limit);
+                continue;
+            }
+            
             trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " Decrease limit to " << nextLimit);
             limit = nextLimit;
+            lastSoftLiteral = disjcores == NO ? INT_MAX : nInVars();
             if(!foundCore) firstLimit = limit;
 
             continue;
@@ -395,15 +352,9 @@ void MaxSatSolver::solve_() {
 }
 
 void MaxSatSolver::updateUpperBound() {
-    assert(weightOfPreviousLevel.size() > 0);
     int64_t newupperbound = lowerbound;
     for(int i = 0; i < softLiterals.size(); i++)
         if(value(softLiterals[i]) == l_False) newupperbound += weights[var(softLiterals[i])];
-    for(int i = 0; i < levels.size(); i++) {
-        vec<Lit>& v = *levels[i];
-        for(int j = 0; j < v.size(); j++)
-            if(value(v[j]) == l_False) newupperbound += weights[var(v[j])];
-    }
     if(newupperbound < upperbound) {
         upperbound = newupperbound;
         copyModel();
@@ -989,71 +940,6 @@ void MaxSatSolver::corestrat_kdyn(int64_t limit) {
     }
     
     assert(conflict.size() == 0);
-}
-
-void MaxSatSolver::detectLevels() {
-    vec<int64_t> allWeights;
-    Map<int64_t, vec<Lit>*> wMap;
-    for(int i = 0; i < softLiterals.size(); i++) {
-        Lit lit = softLiterals[i];
-        int64_t w = weights[var(lit)];
-        if(!wMap.has(w)) { wMap.insert(w, new vec<Lit>()); allWeights.push(w); }
-        wMap[w]->push(lit);
-    }
-    
-    int n = allWeights.size();
-    while(n > 0) {
-        int newn = 0;
-        for(int i = 1; i < n; i++) {
-            if(allWeights[i-1] > allWeights[i]) {
-                int64_t tmp = allWeights[i-1];
-                allWeights[i-1] = allWeights[i];
-                allWeights[i] = tmp;
-                newn = i;
-            }
-        }
-        n = newn;
-    }
-    
-    assert(levels.size() == 0);
-    if(!option_maxsat_bmo) {
-        weightOfPreviousLevel.push(0);
-        levels.push(new vec<Lit>());
-        weightOfPreviousLevel.push(0);
-        for(int i = 0; i < allWeights.size(); i++) {
-            int64_t w = allWeights[i];
-            vec<Lit>& v = *wMap[w];
-            for(int j = 0; j < v.size(); j++) levels.last()->push(v[j]);
-            weightOfPreviousLevel.last() += w * v.size();
-            delete wMap[w];
-        }
-        return;
-    }
-    
-    int64_t cumulative = 0;
-    for(int i = 0; i < allWeights.size(); i++) {
-        int64_t w = allWeights[i];
-        if(w > cumulative) { levels.push(new vec<Lit>()); weightOfPreviousLevel.push(cumulative); }
-        vec<Lit>& v = *wMap[w];
-//        cout << w << "*" << v.size() << " ";
-        for(int j = 0; j < v.size(); j++) levels.last()->push(v[j]);
-        cumulative += w * v.size();
-        delete wMap[w];
-    }
-//    cout << endl;
-    weightOfPreviousLevel.push(cumulative);
-    
-    trace(maxsat, 1, "Detected " << levels.size() << " levels");
-    if(levels.size() == 0) {
-        trace(maxsat, 2, "Add fake, empty level");
-        levels.push(new vec<Lit>());
-        weightOfPreviousLevel.push(cumulative);
-    }
-    assert(weightOfPreviousLevel.size() == levels.size() + 1);
-//    cout << "levels: " << levels.size() << "; literals in each level (higher weight first):";
-//    for (int i = 0; i < levels.size(); i++) cout << " " << levels[i]->size();
-//    cout << endl;
-//    exit(-1);
 }
 
 } // namespace aspino
