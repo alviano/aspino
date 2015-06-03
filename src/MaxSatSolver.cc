@@ -295,15 +295,15 @@ void MaxSatSolver::solve_() {
         if(status != l_False) {
             if(status == l_True) updateUpperBound();
             
-            if(nextLimit == limit) {
-                trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " No other limit to try");
-                return;
-            }
-            
             if(lastSoftLiteral == nInVars() && nInVars() < nVars()) {
                 lastSoftLiteral = disjcores == ALL ? nVars() : INT_MAX;
                 trace(maxsat, 4, "Continue on limit " << limit);
                 continue;
+            }
+            
+            if(nextLimit == limit) {
+                trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " No other limit to try");
+                return;
             }
             
             trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " Decrease limit to " << nextLimit);
