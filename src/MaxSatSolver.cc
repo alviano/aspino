@@ -323,12 +323,14 @@ void MaxSatSolver::solve_() {
         
         cancelUntil(0);
         trim();
+        progressionMinimize();
+        trim();
 //        int oldSize;
 //        do{
 //            oldSize = conflict.size();
 //            minimize();
 //        }while(oldSize != conflict.size());
-        addClause(conflict);
+//        addClause(conflict);
 
 //        numberOfCores++;
 //        sizeOfCores += conflict.size();
@@ -368,8 +370,11 @@ void MaxSatSolver::trim() {
     
     if(conflict.size() <= 1) return;
 
+    int counter = 0;
+
     do{
-        addClause(conflict);
+        counter++;
+//        addClause(conflict);
         assumptions.clear();
         for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
         PseudoBooleanSolver::solve();
@@ -380,7 +385,86 @@ void MaxSatSolver::trim() {
         if(conflict.size() <= 1) return;
     }while(assumptions.size() > conflict.size());
     
+    if(counter % 2 == 1) {
+//        vec<Lit> tmp;
+//        conflict.copyTo(tmp);
+        for(int i = 0; i < assumptions.size(); i++) conflict[i] = ~assumptions[i];
+//        if(tmp.size() != conflict.size()) exit(-1);
+//        for(int i = 0; i < conflict.size(); i++) {
+//            if(tmp[tmp.size()-i-1] != conflict[i]) exit(-2);
+//        }
+//        assumptions.clear();
+//        for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
+//        PseudoBooleanSolver::solve();
+//        assert(status == l_False);
+//        cancelUntil(0);
+    }
+    
     assert(conflict.size() > 1);
+}
+
+void MaxSatSolver::progressionMinimize() {
+    assert(decisionLevel() == 0);
+    if(conflict.size() <= 1) return;
+    
+    trace(maxsat, 10, "Minimize core of size " << conflict.size());
+    
+    vec<Lit> core;
+    conflict.moveTo(core);
+    
+    vec<Lit> allAssumptions;
+    for(int i = 0; i < core.size(); i++) allAssumptions.push(~core[i]);
+        
+    assumptions.clear();
+    int progression = 1;
+    int fixed = 0;
+    while(true) {
+        trace(maxsat, 15, "Minimize: progress to " << progression << "; fixed = " << fixed);
+
+        if(fixed + progression >= allAssumptions.size()) {
+            if(progression == 1) { core.moveTo(conflict); return; }
+            progression = 1;
+            fixed = assumptions.size();
+            continue;
+        }
+        
+        int prec = assumptions.size();
+        for(int i = progression - (progression+1)/2; i < progression; i++) {
+            assert(fixed + i < allAssumptions.size());
+            assumptions.push(allAssumptions[fixed + i]);
+        }
+        
+        PseudoBooleanSolver::solve();
+        cancelUntil(0);
+        if(status == l_False) {
+            trace(maxsat, 10, "Minimize: reduce to size " << conflict.size());
+            
+            conflict.moveTo(core);
+            progression = 1;
+            
+            int j = 0;
+            for(int i = 0, k = core.size() - 1; i < prec; i++) {
+                if(k < 0) break;
+                if(assumptions[i] != ~core[k]) continue;
+                assumptions[j++] = assumptions[i];
+                k--;
+            }
+            assumptions.shrink(assumptions.size() - j);
+            fixed = assumptions.size();
+            
+            j = 0;
+            for(int i = 0, k = core.size() - 1; i < allAssumptions.size(); i++) {
+                if(k < 0) break;
+                if(allAssumptions[i] != ~core[k]) continue;
+                allAssumptions[j++] = allAssumptions[i];
+                k--;
+            }
+            allAssumptions.shrink(allAssumptions.size() - j);
+        }
+        else {
+            progression *= 2;
+        }
+    }
 }
 
 void MaxSatSolver::minimize() {
@@ -628,6 +712,8 @@ void MaxSatSolver::corestrat_one_neg_wc(int64_t limit) {
 }
 
 void MaxSatSolver::corestrat_one_pmres(int64_t limit) {
+//    if(conflict.size() <= 4) { corestrat_pmres(limit); return; }
+    
     trace(maxsat, 10, "Use algorithm one-pmres");
     
     const int N = option_maxsat_tag;
@@ -659,6 +745,11 @@ void MaxSatSolver::corestrat_one_pmres(int64_t limit) {
             if(i == 0 && conflict.size() > 0) { 
                 weights.push(0);
                 prec = mkLit(nVars()-1);
+                
+//                vec<Lit> lits;
+//                for(int j = 0; j < cc.size()-1; j++) lits.push(~cc.lits[j]);
+//                lits.push(prec);
+//                addClause(lits);
             }
             else {
                 weights.push(limit);

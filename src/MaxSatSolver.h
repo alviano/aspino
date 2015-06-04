@@ -58,6 +58,7 @@ private:
     void updateUpperBound();
     
     void trim();
+    void progressionMinimize();
     void minimize();
     
     void (MaxSatSolver::*corestrat)(int64_t);
