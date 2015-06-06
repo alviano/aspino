@@ -322,9 +322,12 @@ void MaxSatSolver::solve_() {
         if(conflict.size() == 0) return;
         
         cancelUntil(0);
-        trim();
+//        trim();
         progressionMinimize();
-        trim();
+//        trim();
+//        for(int i = 0; i < conflict.size()/2; i++) { Lit tmp(conflict[i]); conflict[i] = conflict[conflict.size()-i-1]; conflict[conflict.size()-i-1] = tmp; }
+//        progressionMinimize();
+
 //        int oldSize;
 //        do{
 //            oldSize = conflict.size();
@@ -379,7 +382,7 @@ void MaxSatSolver::trim() {
         for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
         PseudoBooleanSolver::solve();
         assert(status == l_False);
-        trace(maxsat, 4, "Trim " << assumptions.size() - conflict.size() << " literals from conflict");
+        trace(maxsat, 15, "Trim " << assumptions.size() - conflict.size() << " literals from conflict");
         trace(maxsat, 100, "Conflict: " << conflict);
         cancelUntil(0);
         if(conflict.size() <= 1) return;
@@ -408,7 +411,7 @@ void MaxSatSolver::progressionMinimize() {
     if(conflict.size() <= 1) return;
     
     trace(maxsat, 10, "Minimize core of size " << conflict.size());
-    
+    trim();
     vec<Lit> core;
     conflict.moveTo(core);
     
@@ -435,12 +438,15 @@ void MaxSatSolver::progressionMinimize() {
         }
         
         PseudoBooleanSolver::solve();
-        cancelUntil(0);
         if(status == l_False) {
             trace(maxsat, 10, "Minimize: reduce to size " << conflict.size());
-            
-            conflict.moveTo(core);
             progression = 1;
+            
+            assumptions.moveTo(core);
+            trim();
+            core.moveTo(assumptions);
+            conflict.moveTo(core);
+            
             
             int j = 0;
             for(int i = 0, k = core.size() - 1; i < prec; i++) {
@@ -463,7 +469,9 @@ void MaxSatSolver::progressionMinimize() {
         }
         else {
             progression *= 2;
+            updateUpperBound();
         }
+        cancelUntil(0);
     }
 }
 
