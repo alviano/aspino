@@ -173,10 +173,9 @@ void MaxSatSolver::parse(gzFile in_) {
         cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl, exit(3);
 }
 
-int64_t MaxSatSolver::setAssumptions(int64_t limit) {
+void MaxSatSolver::setAssumptions(int64_t limit) {
     assumptions.clear();
     cancelUntil(0);
-    int64_t next = limit;
     int j = 0;
     for(int i = 0; i < softLiterals.size(); i++) {
         int64_t w = weights[var(softLiterals[i])];
@@ -191,10 +190,18 @@ int64_t MaxSatSolver::setAssumptions(int64_t limit) {
         if(var(softLiterals[i]) >= lastSoftLiteral) continue;
         if(w >= limit)
             assumptions.push(softLiterals[i]);
-        else if(next == limit || w > next)
-            next = w;
     }
     softLiterals.shrink_(softLiterals.size()-j);
+}
+
+int64_t MaxSatSolver::computeNextLimit(int64_t limit) const {
+    int64_t next = 0;
+    for(int i = 0; i < softLiterals.size(); i++) {
+        int64_t w = weights[var(softLiterals[i])];
+        if(w == 0) continue;
+        if(w >= limit) continue;
+        if(next == 0 || w > next) next = w;
+    }
     return next;
 }
 
@@ -247,9 +254,6 @@ lbool MaxSatSolver::solve() {
     
     numberOfCores = sizeOfCores = 0;
 
-    lastSoftLiteral = disjcores == NO ? INT_MAX : nInVars();
-    firstLimit = LONG_MAX;
-    
     solve_();
     trace(maxsat, 2, "Bounds: [" << lowerbound << ":" << upperbound << "]");
 
@@ -276,15 +280,14 @@ lbool MaxSatSolver::solve() {
 }
 
 void MaxSatSolver::solve_() {
-    int64_t limit = firstLimit != LONG_MAX ? firstLimit : setAssumptions(LONG_MAX);
+    int vars = nVars();
+    lastSoftLiteral = disjcores == NO ? INT_MAX : vars;
+
+    int64_t limit = computeNextLimit(LONG_MAX);
     int64_t nextLimit;
-    bool foundCore = false;
-    
-//    bool allowToSkip = true;
     
     for(;;) {
-        //aspino::shuffle(softLiterals);
-        nextLimit = setAssumptions(limit);
+        setAssumptions(limit);
         
         trace(maxsat, 2, "Solve with " << assumptions.size() << " assumptions. Current bounds: [" << lowerbound << ":" << upperbound << "]");
         trace(maxsat, 100, "Assumptions: " << assumptions);
@@ -295,12 +298,13 @@ void MaxSatSolver::solve_() {
         if(status != l_False) {
             if(status == l_True) updateUpperBound();
             
-            if(lastSoftLiteral == nInVars() && nInVars() < nVars()) {
-                lastSoftLiteral = disjcores == ALL ? nVars() : INT_MAX;
+            if(lastSoftLiteral == vars && vars < nVars()) {
+                lastSoftLiteral = INT_MAX; //disjcores == ALL ? nVars() : INT_MAX;
                 trace(maxsat, 4, "Continue on limit " << limit);
                 continue;
             }
             
+            nextLimit = computeNextLimit(limit);
             if(nextLimit == limit) {
                 trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " No other limit to try");
                 return;
@@ -308,13 +312,10 @@ void MaxSatSolver::solve_() {
             
             trace(maxsat, 4, (status == l_True ? "SAT!" : "Skip!") << " Decrease limit to " << nextLimit);
             limit = nextLimit;
-            lastSoftLiteral = disjcores == NO ? INT_MAX : nInVars();
-            if(!foundCore) firstLimit = limit;
+            lastSoftLiteral = disjcores == NO ? INT_MAX : vars;
 
             continue;
         }
-        
-        foundCore = true;
         
         trace(maxsat, 2, "UNSAT! Conflict of size " << conflict.size());
         trace(maxsat, 100, "Conflict: " << conflict);
@@ -322,30 +323,8 @@ void MaxSatSolver::solve_() {
         if(conflict.size() == 0) return;
         
         cancelUntil(0);
-//        trim();
-        progressionMinimize();
-//        trim();
-//        for(int i = 0; i < conflict.size()/2; i++) { Lit tmp(conflict[i]); conflict[i] = conflict[conflict.size()-i-1]; conflict[conflict.size()-i-1] = tmp; }
 //        progressionMinimize();
 
-//        int oldSize;
-//        do{
-//            oldSize = conflict.size();
-//            minimize();
-//        }while(oldSize != conflict.size());
-//        addClause(conflict);
-
-//        numberOfCores++;
-//        sizeOfCores += conflict.size();
-//        if(allowToSkip && conflict.size() > 3*sizeOfCores/numberOfCores/2) {
-//            trace(maxsat, 4, "This is a huge core of size " << conflict.size() << " (previous average is " << sizeOfCores/numberOfCores << ")! Skip it and shuffle soft literals");
-//            addClause(conflict);
-//            shuffle(softLiterals, random_seed);
-//            allowToSkip = false;
-//            continue;
-//        }
-//        allowToSkip = true;
-        
         assert(conflict.size() > 0);
         
         trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << limit);
@@ -377,7 +356,6 @@ void MaxSatSolver::trim() {
 
     do{
         counter++;
-//        addClause(conflict);
         assumptions.clear();
         for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
         PseudoBooleanSolver::solve();
@@ -388,20 +366,7 @@ void MaxSatSolver::trim() {
         if(conflict.size() <= 1) return;
     }while(assumptions.size() > conflict.size());
     
-    if(counter % 2 == 1) {
-//        vec<Lit> tmp;
-//        conflict.copyTo(tmp);
-        for(int i = 0; i < assumptions.size(); i++) conflict[i] = ~assumptions[i];
-//        if(tmp.size() != conflict.size()) exit(-1);
-//        for(int i = 0; i < conflict.size(); i++) {
-//            if(tmp[tmp.size()-i-1] != conflict[i]) exit(-2);
-//        }
-//        assumptions.clear();
-//        for(int i = 0; i < conflict.size(); i++) assumptions.push(~conflict[i]);
-//        PseudoBooleanSolver::solve();
-//        assert(status == l_False);
-//        cancelUntil(0);
-    }
+    if(counter % 2 == 1) for(int i = 0; i < assumptions.size(); i++) conflict[i] = ~assumptions[i];
     
     assert(conflict.size() > 1);
 }
@@ -443,6 +408,7 @@ void MaxSatSolver::progressionMinimize() {
             progression = 1;
             
             assumptions.moveTo(core);
+            cancelUntil(0);
             trim();
             core.moveTo(assumptions);
             conflict.moveTo(core);

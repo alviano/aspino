@@ -45,13 +45,13 @@ private:
     vec<int64_t> weights;
     
     int lastSoftLiteral;
-    int64_t firstLimit;
     
     void sameSoftVar(Lit soft, int64_t weight);
     
     void removeSoftLiteralsAtLevelZero();
     void preprocess();
-    int64_t setAssumptions(int64_t limit);
+    void setAssumptions(int64_t limit);
+    int64_t computeNextLimit(int64_t limit) const;
     void solveCurrentLevel();
     void solve_();
     

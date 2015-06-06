@@ -104,7 +104,7 @@ lbool SatSolver::solve(int n) {
 }
 
 void SatSolver::solve_() {
-    if(!ok) status = l_False;
+    if(!ok) { status = l_False; return; }
 
     status = l_Undef;
 
