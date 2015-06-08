@@ -323,7 +323,7 @@ void MaxSatSolver::solve_() {
         if(conflict.size() == 0) return;
         
         cancelUntil(0);
-//        progressionMinimize();
+        progressionMinimize();
 
         assert(conflict.size() > 0);
         
