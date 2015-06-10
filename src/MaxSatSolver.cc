@@ -47,7 +47,7 @@ static int64_t parseLong(B& in) {
     return neg ? -val : val; }
 
     
-MaxSatSolver::MaxSatSolver() : lowerbound(0) {
+MaxSatSolver::MaxSatSolver() : lowerbound(0), lastConflict(0) {
     if(strcmp(option_maxsat_strat, "one") == 0) corestrat = &MaxSatSolver::corestrat_one;
     else if(strcmp(option_maxsat_strat, "one-2") == 0) corestrat = &MaxSatSolver::corestrat_one_2;
     else if(strcmp(option_maxsat_strat, "one-neg") == 0) corestrat = &MaxSatSolver::corestrat_one_neg;
@@ -288,7 +288,8 @@ void MaxSatSolver::solve_() {
     
     for(;;) {
         setAssumptions(limit);
-        
+        lastConflict = conflicts;
+
         trace(maxsat, 2, "Solve with " << assumptions.size() << " assumptions. Current bounds: [" << lowerbound << ":" << upperbound << "]");
         trace(maxsat, 100, "Assumptions: " << assumptions);
         
@@ -375,7 +376,9 @@ void MaxSatSolver::progressionMinimize() {
     assert(decisionLevel() == 0);
     if(conflict.size() <= 1) return;
     
-    trace(maxsat, 10, "Minimize core of size " << conflict.size());
+    uint64_t budget = conflicts - lastConflict;
+    
+    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (each check with budget " << budget << ")");
     trim();
     vec<Lit> core;
     conflict.moveTo(core);
@@ -402,7 +405,9 @@ void MaxSatSolver::progressionMinimize() {
             assumptions.push(allAssumptions[fixed + i]);
         }
         
+        setConfBudget(budget);
         PseudoBooleanSolver::solve();
+        budgetOff();
         if(status == l_False) {
             trace(maxsat, 10, "Minimize: reduce to size " << conflict.size());
             progression = 1;
@@ -435,7 +440,7 @@ void MaxSatSolver::progressionMinimize() {
         }
         else {
             progression *= 2;
-            updateUpperBound();
+            if(status == l_True) updateUpperBound();
         }
         cancelUntil(0);
     }

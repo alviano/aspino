@@ -46,6 +46,8 @@ private:
     
     int lastSoftLiteral;
     
+    uint64_t lastConflict;
+    
     void sameSoftVar(Lit soft, int64_t weight);
     
     void removeSoftLiteralsAtLevelZero();
