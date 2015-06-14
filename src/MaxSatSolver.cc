@@ -1001,9 +1001,16 @@ void MaxSatSolver::corestrat_pmreslog(int64_t limit) {
 void MaxSatSolver::corestrat_kdyn(int64_t limit) {
     trace(maxsat, 10, "Use algorithm kdyn");
     
-    const int b = ceil(log10(conflict.size()) * 16);
+    const int b = conflict.size() <= 2 ? 8 : ceil(log10(conflict.size()) * 16);
     const int m = ceil(2.0 * conflict.size() / (b-2.0));
-    const int N = ceil((conflict.size() + m) / static_cast<double>(m));
+    const int N = ceil(
+            (
+                conflict.size()         // literals in the core
+                + conflict.size() - 1   // new soft literals
+                + 2 * (m-1)             // new connectors
+            ) / (m * 2.0)
+        );
+    // ceil((conflict.size() + m) / static_cast<double>(m));
     trace(maxsat, 15, "At most " << N*2 << " elements in " << m << " new constraints");
 
     Lit prec = lit_Undef;
