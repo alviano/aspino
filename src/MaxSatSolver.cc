@@ -206,30 +206,62 @@ int64_t MaxSatSolver::computeNextLimit(int64_t limit) const {
 }
 
 void MaxSatSolver::preprocess() {
-    assert(clauses.size() < inClauses);
-    for(int i = 0; i < inClauses; i++) {
-        Clause& clause = ca[clauses[i]];
-        int64_t min = LONG_MAX;
-        for(int j = 0; j < clause.size(); j++) {
-            if(weights[var(clause[j])] == 0) { min = LONG_MAX; break; }
-                
-            int pos = 0;
-            for(int k = 0; k < softLiterals.size(); k++, pos++) if(var(softLiterals[k]) == var(clause[j])) break;
-            
-            if(softLiterals[pos] == clause[j]) { min = LONG_MAX; break; }
-            
-            if(weights[var(clause[j])] < min) min = weights[var(clause[j])];
+    trace(maxsat, 10, "Preprocessing");
+    
+    trace(maxsat, 20, "Preprocessing: cache signs of soft literals");
+    vec<bool> signs(nVars());
+    int weight = 0;
+    for(int i = 0; i < softLiterals.size(); i++) {
+        if(weight == 0) weight = weights[var(softLiterals[i])];
+        else if(weight != weights[var(softLiterals[i])]) {
+            trace(maxsat, 10, "Preprocessing: detected weighted instance; skip preprocessing");
+            return;
         }
-        if(min == LONG_MAX) continue;
-        
-        conflict.clear();
-        for(int j = 0; j < clause.size(); j++) conflict.push(clause[j]);
-        trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << min);
-        lowerbound += min;
-        cout << "o " << lowerbound << endl;
-        (this->*corestrat)(min);
+        signs[var(softLiterals[i])] = sign(softLiterals[i]);
+    }
+    
+    trace(maxsat, 20, "Preprocessing: partition clauses by increasing size");
+    vec<vec<CRef>*> clausesPartition;
+    vec<int> sizes;
+    Map<int, int> sizeMap;
+    for(int i = 0; i < clauses.size(); i++) {
+        Clause& clause = ca[clauses[i]];
+        assert(clause.size() >= 2);
+        if(!sizeMap.has(clause.size())) { 
+            sizes.push(clause.size());
+            sizeMap.insert(clause.size(), clausesPartition.size());
+            clausesPartition.push(new vec<CRef>());
+        }
+        clausesPartition[sizeMap[clause.size()]]->push(clauses[i]);
+    }
+    sort(sizes);
+    
+    trace(maxsat, 20, "Preprocessing: search for input clauses being cores");
+    for(int i = 0; i < sizes.size(); i++) {
+        trace(maxsat, 30, "Preprocessing: consider clauses of size " << sizes[i]);
+        vec<CRef>& clauses = *clausesPartition[sizeMap[sizes[i]]];
+        for(int j = 0; j < clauses.size(); j++) {
+            Clause& clause = ca[clauses[j]];
+            assert(clause.size() == sizes[i]);
+            
+            int64_t min = LONG_MAX;
+            for(int k = 0; k < clause.size(); k++) {
+                if(weights[var(clause[k])] == 0 || signs[var(clause[k])] == sign(clause[k])) { min = LONG_MAX; break; }
+                if(weights[var(clause[k])] < min) min = weights[var(clause[k])];
+            }
+            if(min == LONG_MAX) continue;
+            
+            conflict.clear();
+            for(int k = 0; k < clause.size(); k++) conflict.push(clause[k]);
+            trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << min);
+            lowerbound += min;
+            cout << "o " << lowerbound << endl;
+            (this->*corestrat)(min);
+        }
     }
 
+    trace(maxsat, 20, "Preprocessing: clean up");
+    for(int i = 0; i < clausesPartition.size(); i++) delete clausesPartition[i];
 }
 
 void MaxSatSolver::removeSoftLiteralsAtLevelZero() {
@@ -250,7 +282,7 @@ lbool MaxSatSolver::solve() {
     removeSoftLiteralsAtLevelZero();
     cout << "o " << lowerbound << endl;
 
-//    preprocess();
+    preprocess();
     
     numberOfCores = sizeOfCores = 0;
 
