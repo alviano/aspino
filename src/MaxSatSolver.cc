@@ -420,7 +420,7 @@ void MaxSatSolver::progressionMinimize() {
     for(int i = 0; i < core.size(); i++) allAssumptions.push(~core[i]);
 
     assumptions.clear();
-    const int progressionFrom = 4;
+    const int progressionFrom = 1;
     int progression = progressionFrom;
     int fixed = 0;
     while(true) {
