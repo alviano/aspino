@@ -61,6 +61,7 @@ private:
     
     void trim();
     void progressionMinimize();
+    void binaryMinimize();
     void minimize();
     
     void (MaxSatSolver::*corestrat)(int64_t);
