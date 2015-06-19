@@ -52,6 +52,7 @@ private:
     
     void removeSoftLiteralsAtLevelZero();
     void preprocess();
+    void initUpperBound();
     void setAssumptions(int64_t limit);
     int64_t computeNextLimit(int64_t limit) const;
     void solveCurrentLevel();
@@ -62,6 +63,7 @@ private:
     void trim();
     void progressionMinimize();
     void binaryMinimize();
+    void progressionBinaryMinimize();
     void minimize();
     
     void (MaxSatSolver::*corestrat)(int64_t);
@@ -81,8 +83,6 @@ private:
     enum DisjunctCores {NO = 0, PRE, ALL};
     DisjunctCores disjcores;
     
-    int numberOfCores;
-    int sizeOfCores;
     vec<vec<Lit>*> cores;
 };
 
