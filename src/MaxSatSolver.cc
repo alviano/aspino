@@ -251,7 +251,7 @@ void MaxSatSolver::preprocess() {
         clausesPartition[sizeMap[clause.size()]]->push(clauses[i]);
     }
     sort(sizes);
-    
+
     trace(maxsat, 20, "Preprocessing: search for input clauses being cores");
     for(int i = 0; i < sizes.size(); i++) {
         trace(maxsat, 30, "Preprocessing: consider clauses of size " << sizes[i]);
@@ -269,7 +269,7 @@ void MaxSatSolver::preprocess() {
             if(min == LONG_MAX) continue;
             
             conflict.clear();
-            for(int k = 0; k < clause.size(); k++) conflict.push(clause[k]);
+            for(int k = 0; k < clause.size(); k++) if(value(clause[k]) != l_False) conflict.push(clause[k]);
             trace(maxsat, 4, "Analyze conflict of size " << conflict.size() << " and weight " << min);
             lowerbound += min;
             cout << "o " << lowerbound << endl;
