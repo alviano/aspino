@@ -36,6 +36,8 @@ public:
     virtual lbool solve();
     virtual lbool solve(int) { return solve(); }
     
+//    void onTick();
+    
     
 private:
     int64_t upperbound;
@@ -47,6 +49,9 @@ private:
     int lastSoftLiteral;
     
     uint64_t lastConflict;
+    uint64_t lastPropagation;
+    double lastCallCpuTime;
+//    double timeBudget;
     
     void sameSoftVar(Lit soft, int64_t weight);
     
