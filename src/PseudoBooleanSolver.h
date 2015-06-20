@@ -68,7 +68,7 @@ class PseudoBooleanSolver : public SatSolver {
 public:
     static const CRef CRef_MoreConflict;
     
-    PseudoBooleanSolver() : nextToPropagate(0) {}
+    PseudoBooleanSolver() : moreConflictWC(NULL), moreConflictCC(NULL), nextToPropagate(0) {}
     virtual ~PseudoBooleanSolver();
     
     virtual void newVar();

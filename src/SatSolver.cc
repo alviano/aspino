@@ -198,9 +198,7 @@ lbool SatSolver::search(int)
            
         }else{
 	  // Our dynamic restart, see the SAT09 competition compagnion paper 
-      //static int cazzo=0;
-      //if(lbdQueue.isvalid() && cazzo++%10000==0) cerr << "*** " << lbdQueue.getavg() << "*" << K << "=" << (lbdQueue.getavg()*K) << "; " << sumLBD << "/" << conflictsRestarts << "=" << (sumLBD / conflictsRestarts) << endl;
-	  if ( //!withinBudget() || /* ADDED BY MALVI */
+	  if ( asynch_interrupt || // ADDED BY MALVI
 	      ( lbdQueue.isvalid() && ((lbdQueue.getavg()*K) > (sumLBD / conflictsRestarts)))) {
 	    lbdQueue.fastclear();
 	    progress_estimate = progressEstimate();

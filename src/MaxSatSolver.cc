@@ -34,21 +34,20 @@ Glucose::IntOption option_maxsat_tag("MAXSAT", "maxsat-tag", "Parameter for maxs
 
 namespace aspino {
 
-//#include <signal.h>
-//static MaxSatSolver* solver;
-//static void watchdog(int) {
-//    assert(solver != NULL);
-//    solver->onTick();
-//    alarm(1);
-//}
-//void MaxSatSolver::onTick() {
-//    return;
+#include <signal.h>
+static MaxSatSolver* solver;
+static void watchdog(int) {
+    assert(solver != NULL);
+    solver->onTick();
+    alarm(1);
+}
+void MaxSatSolver::onTick() {
 //    trace(maxsat, 1, "Tick: " << Glucose::cpuTime() << "; time budget: " << timeBudget);
-//    if(timeBudget > 0.0 && Glucose::cpuTime() > timeBudget) {
-//        trace(maxsat, 1, "interrupt!");
-//        Solver::asynch_interrupt = true;
-//    }
-//}
+    if(timeBudget > 0.0 && Glucose::cpuTime() > timeBudget) {
+        trace(maxsat, 1, "interrupt!");
+        Solver::asynch_interrupt = true;
+    }
+}
 
 template<class B>
 static int64_t parseLong(B& in) {
@@ -190,25 +189,32 @@ void MaxSatSolver::parse(gzFile in_) {
         cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl, exit(3);
 }
 
-void MaxSatSolver::setAssumptions(int64_t limit) {
-    assumptions.clear();
-    cancelUntil(0);
+void MaxSatSolver::hardening() {
     int j = 0;
     for(int i = 0; i < softLiterals.size(); i++) {
         int64_t w = weights[var(softLiterals[i])];
         if(w == 0) continue;
         if(w + lowerbound >= upperbound) {
             addClause(softLiterals[i]);
-            trace(maxsat, 30, "Hardening of " << softLiterals[i] << " of weight " << weights[var(softLiterals[i])]);
+            trace(maxsat, 30, "Hardening of " << softLiterals[i] << " of weight " << w);
             weights[var(softLiterals[i])] = 0;
             continue;
         }
         softLiterals[j++] = softLiterals[i];
-        if(var(softLiterals[i]) >= lastSoftLiteral) continue;
-        if(w >= limit)
-            assumptions.push(softLiterals[i]);
     }
     softLiterals.shrink_(softLiterals.size()-j);
+}
+
+void MaxSatSolver::setAssumptions(int64_t limit) {
+    assumptions.clear();
+    cancelUntil(0);
+    for(int i = 0; i < softLiterals.size(); i++) {
+        int64_t w = weights[var(softLiterals[i])];
+        assert(w > 0);
+        assert(w + lowerbound < upperbound);
+        if(var(softLiterals[i]) >= lastSoftLiteral) continue;
+        if(w >= limit) assumptions.push(softLiterals[i]);
+    }
 }
 
 int64_t MaxSatSolver::computeNextLimit(int64_t limit) const {
@@ -305,9 +311,9 @@ lbool MaxSatSolver::solve() {
 
     preprocess();
     
-//    solver = this;
-//    signal(SIGALRM, watchdog);
-//    alarm(1);
+    solver = this;
+    signal(SIGALRM, watchdog);
+    alarm(1);
     solve_();
     trace(maxsat, 2, "Bounds: [" << lowerbound << ":" << upperbound << "]");
 
@@ -341,7 +347,7 @@ void MaxSatSolver::solve_() {
     int64_t nextLimit;
     
     for(;;) {
-//        initUpperBound();
+        hardening();
         setAssumptions(limit);
         lastConflict = conflicts;
         lastPropagation = propagations;
@@ -351,7 +357,7 @@ void MaxSatSolver::solve_() {
         trace(maxsat, 100, "Assumptions: " << assumptions);
         
         if(assumptions.size() == 0 && upperbound != LONG_MAX) status = l_Undef;
-        else PseudoBooleanSolver::solve();
+        else progressionBinaryFind();
         
         if(status != l_False) {
             if(status == l_True) updateUpperBound();
@@ -406,7 +412,102 @@ void MaxSatSolver::updateUpperBound() {
         copyModel();
         trace(maxsat, 200, "Model: " << model);
         cout << "c ub " << upperbound << endl;
+        
+//        satisfiableSoftLiterals.growTo(nVars());
+//        for(int i = 0; i < softLiterals.size(); i++) satisfiableSoftLiterals[var(softLiterals[i])] = (value(softLiterals[i]) != l_False);
     }
+}
+
+void MaxSatSolver::progressionBinaryFind() {
+    vec<Lit> allAssumptions;
+    assumptions.moveTo(allAssumptions);
+    vec<Lit> remainingAssumptions;
+    
+    for(int i = 0; i < allAssumptions.size(); i++) {
+        if(var(allAssumptions[i]) < satisfiableSoftLiterals.size() && satisfiableSoftLiterals[var(allAssumptions[i])]) 
+            assumptions.push(allAssumptions[i]);
+        else
+            remainingAssumptions.push(allAssumptions[i]);
+    }
+    assumptions.copyTo(allAssumptions);
+    for(int i = 0; i < remainingAssumptions.size(); i++) allAssumptions.push(remainingAssumptions[i]);
+
+    const int progressionFrom = 1;
+    int progression = progressionFrom;
+    int fixed = assumptions.size();
+    int sat = fixed;
+    while(true) {
+        if(fixed + progression >= allAssumptions.size()) {
+            assumptions.shrink_(assumptions.size() - sat);
+            break;
+        }
+
+        trace(maxsat, 15, "Find: progress to " << progression << "; fixed = " << fixed);
+        
+        for(int i = assumptions.size(); i < fixed + progression; i++) {
+            assert(i < allAssumptions.size());
+            assumptions.push(allAssumptions[i]);
+        }
+
+        
+        timeBudget = Glucose::cpuTime() + 10.0;
+        PseudoBooleanSolver::solve();
+        clearInterrupt();
+        timeBudget = 0.0;
+        
+        if(status == l_False) {
+            trace(maxsat, 10, "Find: core of size " << conflict.size());
+            return;
+        }
+        else {
+            trace(maxsat, 20, (status == l_True ? "SAT!" : "UNDEF"));
+            progression *= 2;
+            if(status == l_True) {
+                sat = assumptions.size();
+                updateUpperBound();
+                satisfiableSoftLiterals.growTo(nVars());
+                for(int i = fixed; i < assumptions.size(); i++) satisfiableSoftLiterals[var(assumptions[i])] = true;
+            }
+        }
+        cancelUntil(0);
+    }
+
+    fixed = assumptions.size();
+    int toAdd = (allAssumptions.size() - fixed) / 2;
+    while(true) {
+        if(toAdd == 0) {
+            break;
+        }
+
+        trace(maxsat, 15, "Find: try with " << fixed << "+" << toAdd << " literals");
+        
+        for(int i = assumptions.size(); i < fixed + toAdd; i++) {
+            assert(i < allAssumptions.size());
+            assumptions.push(allAssumptions[i]);
+        }
+        
+        timeBudget = Glucose::cpuTime() + 10.0;
+        PseudoBooleanSolver::solve();
+        clearInterrupt();
+        timeBudget = 0.0;
+        if(status == l_False) {
+            trace(maxsat, 10, "Find: core of size " << conflict.size());
+            return;
+        }
+        else {
+            trace(maxsat, 20, (status == l_True ? "SAT!" : "UNDEF"));
+            fixed += toAdd;
+            toAdd /= 2;
+            if(status == l_True) {
+                updateUpperBound();
+            }
+        }
+        cancelUntil(0);
+    }
+    
+    allAssumptions.moveTo(assumptions);
+    trace(maxsat, 15, "Find: try with all " << assumptions.size() << " assumptions (no budget)");
+    PseudoBooleanSolver::solve();
 }
 
 void MaxSatSolver::trim() {
@@ -524,13 +625,14 @@ void MaxSatSolver::progressionBinaryMinimize() {
     if(conflict.size() <= 1) return;
     
     double cpuTime = Glucose::cpuTime() - lastCallCpuTime;
-    uint64_t budgetConflics = conflicts - lastConflict;
-    uint64_t budgetPropagation = propagations - lastPropagation;
-    if(budgetConflics > budgetConflics * 60 / cpuTime) budgetConflics = budgetConflics * 60 / cpuTime;
-    if(budgetPropagation > budgetPropagation * 60 / cpuTime) budgetPropagation = budgetPropagation * 60 / cpuTime;
-    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << (propagations - lastPropagation) << " propagations; " << cpuTime << " seconds; each check with budget: " << budgetConflics << " conflicts, " << budgetPropagation << " propagations)");
+//    uint64_t budgetConflics = conflicts - lastConflict;
+//    uint64_t budgetPropagation = propagations - lastPropagation;
+//    if(budgetConflics > budgetConflics * 60 / cpuTime) budgetConflics = budgetConflics * 60 / cpuTime;
+//    if(budgetPropagation > budgetPropagation * 60 / cpuTime) budgetPropagation = budgetPropagation * 60 / cpuTime;
+//    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << (propagations - lastPropagation) << " propagations; " << cpuTime << " seconds; each check with budget: " << budgetConflics << " conflicts, " << budgetPropagation << " propagations)");
+    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << cpuTime << " seconds)");
     trim();
-    if(budgetConflics == 0 || budgetPropagation == 0) return;
+    if(conflicts == lastConflict) return;
 
     vec<Lit> core;
     conflict.moveTo(core);
@@ -541,12 +643,9 @@ void MaxSatSolver::progressionBinaryMinimize() {
     assumptions.clear();
     const int progressionFrom = 1;
     int progression = progressionFrom;
-    int sat = 0;
+    vec<Lit> sat;
     while(true) {
-        if(progression >= allAssumptions.size()) {
-            assumptions.shrink_(assumptions.size() - sat);
-            break;
-        }
+        if(progression >= allAssumptions.size()) break;
 
         trace(maxsat, 15, "Minimize: progress to " << progression);
         
@@ -560,13 +659,13 @@ void MaxSatSolver::progressionBinaryMinimize() {
         uint64_t conflictsRestarts_ = conflictsRestarts;
         sumLBD = 0;
         conflictsRestarts = 0;
-        setConfBudget(budgetConflics);
-        setPropBudget(budgetPropagation);
-//        timeBudget = Glucose::cpuTime() + 10.0;
+//        setConfBudget(budgetConflics);
+//        setPropBudget(budgetPropagation);
+        timeBudget = Glucose::cpuTime() + 30.0; //(cpuTime < 30.0 ? cpuTime : 30.0);
         PseudoBooleanSolver::solve();
-        budgetOff();
-//        clearInterrupt();
-//        timeBudget = 0.0;
+//        budgetOff();
+        clearInterrupt();
+        timeBudget = 0.0;
         sumLBD += sumLBD_;
         conflictsRestarts += conflictsRestarts_;
         if(status == l_False) {
@@ -596,19 +695,30 @@ void MaxSatSolver::progressionBinaryMinimize() {
                 k--;
             }
             allAssumptions.shrink(allAssumptions.size() - j);
+
+            j = 0;
+            for(int i = 0, k = core.size() - 1; i < sat.size(); i++) {
+                if(k < 0) break;
+                if(sat[i] != ~core[k]) continue;
+                sat[j++] = sat[i];
+                k--;
+            }
+            sat.shrink(sat.size() - j);
+            
+            break;
         }
         else {
             trace(maxsat, 20, (status == l_True ? "SAT!" : "UNDEF"));
             progression *= 2;
             if(status == l_True) {
-                sat = assumptions.size();
+                while(sat.size() < assumptions.size()) sat.push(assumptions[sat.size()]);
                 updateUpperBound();
             }
         }
         cancelUntil(0);
     }
 
-    
+    sat.moveTo(assumptions);
     int fixed = assumptions.size();
     int toAdd = (core.size() - fixed) / 2;
     while(true) {
@@ -621,7 +731,7 @@ void MaxSatSolver::progressionBinaryMinimize() {
         
         int prec = assumptions.size();
         for(int i = assumptions.size(); i < fixed + toAdd; i++) {
-            assert(i < allAssumptions.size());
+            assert_msg(i < allAssumptions.size(), "i=" << i <<"; allAssumptions.size()=" << allAssumptions.size());
             assumptions.push(allAssumptions[i]);
         }
         
@@ -629,13 +739,13 @@ void MaxSatSolver::progressionBinaryMinimize() {
         uint64_t conflictsRestarts_ = conflictsRestarts;
         sumLBD = 0;
         conflictsRestarts = 0;
-        setConfBudget(budgetConflics);
-        setPropBudget(budgetPropagation);
-//        timeBudget = Glucose::cpuTime() + 10.0;
+//        setConfBudget(budgetConflics);
+//        setPropBudget(budgetPropagation);
+        timeBudget = Glucose::cpuTime() + 60.0; //(cpuTime < 30.0 ? cpuTime*2 : 60.0);
         PseudoBooleanSolver::solve();
-        budgetOff();
-//        clearInterrupt();
-//        timeBudget = 0.0;
+//        budgetOff();
+        clearInterrupt();
+        timeBudget = 0.0;
         sumLBD += sumLBD_;
         conflictsRestarts += conflictsRestarts_;
         if(status == l_False) {
@@ -656,7 +766,7 @@ void MaxSatSolver::progressionBinaryMinimize() {
             }
             assumptions.shrink(assumptions.size() - j);
             fixed = assumptions.size();
-            
+
             j = 0;
             for(int i = 0, k = core.size() - 1; i < allAssumptions.size(); i++) {
                 if(k < 0) break;
@@ -665,6 +775,7 @@ void MaxSatSolver::progressionBinaryMinimize() {
                 k--;
             }
             allAssumptions.shrink(allAssumptions.size() - j);
+            assert_msg(allAssumptions.size() == core.size(), allAssumptions << " " << core);
             
             toAdd = (core.size() - fixed) / 2;
         }
@@ -680,54 +791,54 @@ void MaxSatSolver::progressionBinaryMinimize() {
     }    
 }
 
-void MaxSatSolver::initUpperBound() {
-    assumptions.clear();
-    vec<Lit> allAssumptions;
-    softLiterals.copyTo(allAssumptions);
-    const int budget = 10000;
-    const int progressionFrom = 1;
-    int progression = progressionFrom;
-    int fixed = 0;
-    while(true) {
-        if(fixed + progression > allAssumptions.size()) {
-            if(progression == progressionFrom) return;
-            progression = progressionFrom;
-            fixed = assumptions.size();
-            continue;
-        }
-
-        trace(maxsat, 150, "Init upper bound: progress to " << progression << "; fixed = " << fixed);
-        
-        for(int i = assumptions.size(); i < fixed + progression; i++) {
-            assert(i < allAssumptions.size());
-            assumptions.push(allAssumptions[i]);
-        }
-        
-        setConfBudget(budget);
-        PseudoBooleanSolver::solve();
-        budgetOff();
-        if(status == l_False) {
-            do{
-                trace(maxsat, 100, "Init upper bound: remove one assumption");
-                for(int i = assumptions.size(); i < allAssumptions.size(); i++) allAssumptions[i-1] = allAssumptions[i];
-                assumptions.pop();
-                allAssumptions.pop();
-                setConfBudget(budget);
-                PseudoBooleanSolver::solve();
-                budgetOff();
-            }while(status == l_False);
-            
-            progression = progressionFrom;
-            fixed = assumptions.size();
-        }
-        else {
-            trace(maxsat, 200, (status == l_True ? "SAT!" : "UNDEF"));
-            progression *= 2;
-            if(status == l_True) updateUpperBound();
-        }
-        cancelUntil(0);
-    }
-}
+//void MaxSatSolver::initUpperBound() {
+//    assumptions.clear();
+//    vec<Lit> allAssumptions;
+//    softLiterals.copyTo(allAssumptions);
+//    const int budget = 10000;
+//    const int progressionFrom = 1;
+//    int progression = progressionFrom;
+//    int fixed = 0;
+//    while(true) {
+//        if(fixed + progression > allAssumptions.size()) {
+//            if(progression == progressionFrom) return;
+//            progression = progressionFrom;
+//            fixed = assumptions.size();
+//            continue;
+//        }
+//
+//        trace(maxsat, 150, "Init upper bound: progress to " << progression << "; fixed = " << fixed);
+//        
+//        for(int i = assumptions.size(); i < fixed + progression; i++) {
+//            assert(i < allAssumptions.size());
+//            assumptions.push(allAssumptions[i]);
+//        }
+//        
+//        setConfBudget(budget);
+//        PseudoBooleanSolver::solve();
+//        budgetOff();
+//        if(status == l_False) {
+//            do{
+//                trace(maxsat, 100, "Init upper bound: remove one assumption");
+//                for(int i = assumptions.size(); i < allAssumptions.size(); i++) allAssumptions[i-1] = allAssumptions[i];
+//                assumptions.pop();
+//                allAssumptions.pop();
+//                setConfBudget(budget);
+//                PseudoBooleanSolver::solve();
+//                budgetOff();
+//            }while(status == l_False);
+//            
+//            progression = progressionFrom;
+//            fixed = assumptions.size();
+//        }
+//        else {
+//            trace(maxsat, 200, (status == l_True ? "SAT!" : "UNDEF"));
+//            progression *= 2;
+//            if(status == l_True) updateUpperBound();
+//        }
+//        cancelUntil(0);
+//    }
+//}
 
 void MaxSatSolver::binaryMinimize() {
     assert(decisionLevel() == 0);

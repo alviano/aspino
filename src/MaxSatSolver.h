@@ -36,7 +36,7 @@ public:
     virtual lbool solve();
     virtual lbool solve(int) { return solve(); }
     
-//    void onTick();
+    void onTick();
     
     
 private:
@@ -45,25 +45,29 @@ private:
     
     vec<Lit> softLiterals;
     vec<int64_t> weights;
+    vec<bool> satisfiableSoftLiterals;
     
     int lastSoftLiteral;
     
     uint64_t lastConflict;
     uint64_t lastPropagation;
     double lastCallCpuTime;
-//    double timeBudget;
+    double timeBudget;
     
     void sameSoftVar(Lit soft, int64_t weight);
     
     void removeSoftLiteralsAtLevelZero();
     void preprocess();
-    void initUpperBound();
+//    void initUpperBound();
+    void hardening();
     void setAssumptions(int64_t limit);
     int64_t computeNextLimit(int64_t limit) const;
     void solveCurrentLevel();
     void solve_();
     
     void updateUpperBound();
+    
+    void progressionBinaryFind();
     
     void trim();
     void progressionMinimize();
