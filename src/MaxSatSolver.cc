@@ -309,8 +309,8 @@ void MaxSatSolver::removeSoftLiteralsAtLevelZero() {
 
 lbool MaxSatSolver::solve() {
     solver = this;
-    signal(SIGALRM, watchdog);
-    alarm(1);
+//    signal(SIGALRM, watchdog);
+//    alarm(1);
 
     inClauses = clauses.size();
     upperbound = LONG_MAX;
@@ -614,9 +614,16 @@ void MaxSatSolver::progressionMinimize(int64_t limit) {
             assumptions.push(allAssumptions[i]);
         }
         
+        float sumLBD_ = sumLBD;
+        uint64_t conflictsRestarts_ = conflictsRestarts;
+        sumLBD = 0;
+        conflictsRestarts = 0;
         setConfBudget(budget);
         PseudoBooleanSolver::solve();
         budgetOff();
+        sumLBD += sumLBD_;
+        conflictsRestarts += conflictsRestarts_;
+
         if(status == l_False) {
             trace(maxsat, 10, "Minimize: reduce to size " << conflict.size());
             progression = progressionFrom;
