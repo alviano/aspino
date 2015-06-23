@@ -65,14 +65,15 @@ private:
     void solveCurrentLevel();
     void solve_();
     
+    void updateLowerBound(int64_t limit);
     void updateUpperBound();
     
-    void progressionBinaryFind();
+    void progressionBinaryFind(int64_t limit);
     
     void trim();
-    void progressionMinimize();
-    void binaryMinimize();
-    void progressionBinaryMinimize();
+    void progressionMinimize(int64_t limit);
+    void binaryMinimize(int64_t limit);
+    void progressionBinaryMinimize(int64_t limit);
     void minimize();
     
     void (MaxSatSolver::*corestrat)(int64_t);
