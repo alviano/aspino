@@ -367,8 +367,8 @@ void MaxSatSolver::solve_() {
         trace(maxsat, 100, "Assumptions: " << assumptions);
         
         if(assumptions.size() == 0 && upperbound != LONG_MAX) status = l_Undef;
-        else progressionBinaryFind(limit);  
-             //PseudoBooleanSolver::solve(); //
+        else //progressionBinaryFind(limit);  
+             PseudoBooleanSolver::solve(); //
         
         if(status != l_False) {
             if(status == l_True) updateUpperBound();
@@ -401,9 +401,9 @@ void MaxSatSolver::solve_() {
         updateLowerBound(limit);
         
         assert(decisionLevel() == 0);
-//        progressionMinimize(limit);
+        progressionMinimize(limit);
 //        binaryMinimize(limit);
-        progressionBinaryMinimize(limit);
+//        progressionBinaryMinimize(limit);
         trim(); // last trim, just in case some new learned clause may help to further reduce the core
 
         assert(conflict.size() > 0);
@@ -471,7 +471,7 @@ void MaxSatSolver::progressionBinaryFind(int64_t limit) {
 //        uint64_t conflictsRestarts_ = conflictsRestarts;
         sumLBD = 0.0;
         conflictsRestarts = 0;
-        timeBudget = Glucose::cpuTime() + 10.0;
+        timeBudget = Glucose::cpuTime() + 3.0;
         assert(decisionLevel() == 0);
         PseudoBooleanSolver::solve();
         clearInterrupt();
@@ -518,7 +518,7 @@ void MaxSatSolver::progressionBinaryFind(int64_t limit) {
 //        uint64_t conflictsRestarts_ = conflictsRestarts;
         sumLBD = 0.0;
         conflictsRestarts = 0;
-        timeBudget = Glucose::cpuTime() + 10.0;
+        timeBudget = Glucose::cpuTime() + 3.0;
         assert(decisionLevel() == 0);
         PseudoBooleanSolver::solve();
         clearInterrupt();
@@ -664,12 +664,12 @@ void MaxSatSolver::progressionBinaryMinimize(int64_t limit) {
     if(conflict.size() <= 1) return;
     
     double cpuTime = Glucose::cpuTime() - lastCallCpuTime;
-//    uint64_t budgetConflics = conflicts - lastConflict;
-//    uint64_t budgetPropagation = propagations - lastPropagation;
-//    if(budgetConflics > budgetConflics * 60 / cpuTime) budgetConflics = budgetConflics * 60 / cpuTime;
-//    if(budgetPropagation > budgetPropagation * 60 / cpuTime) budgetPropagation = budgetPropagation * 60 / cpuTime;
-//    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << (propagations - lastPropagation) << " propagations; " << cpuTime << " seconds; each check with budget: " << budgetConflics << " conflicts, " << budgetPropagation << " propagations)");
-    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << cpuTime << " seconds)");
+    uint64_t budgetConflics = conflicts - lastConflict;
+    uint64_t budgetPropagation = propagations - lastPropagation;
+    if(budgetConflics > budgetConflics * 60 / cpuTime) budgetConflics = budgetConflics * 10 / cpuTime;
+    if(budgetPropagation > budgetPropagation * 60 / cpuTime) budgetPropagation = budgetPropagation * 10 / cpuTime;
+    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << (propagations - lastPropagation) << " propagations; " << cpuTime << " seconds; each check with budget: " << budgetConflics << " conflicts, " << budgetPropagation << " propagations)");
+    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts); " << cpuTime << " seconds)");
     trim();
     if(conflicts == lastConflict) return;
 
@@ -698,13 +698,13 @@ void MaxSatSolver::progressionBinaryMinimize(int64_t limit) {
         uint64_t conflictsRestarts_ = conflictsRestarts;
         sumLBD = 0;
         conflictsRestarts = 0;
-//        setConfBudget(budgetConflics);
-//        setPropBudget(budgetPropagation);
-        timeBudget = Glucose::cpuTime() + 10.0; //(cpuTime < 30.0 ? cpuTime : 30.0);
+        setConfBudget(budgetConflics);
+        setPropBudget(budgetPropagation);
+//        timeBudget = Glucose::cpuTime() + 10.0; //(cpuTime < 30.0 ? cpuTime : 30.0);
         PseudoBooleanSolver::solve();
-//        budgetOff();
-        clearInterrupt();
-        timeBudget = 0.0;
+        budgetOff();
+//        clearInterrupt();
+//        timeBudget = 0.0;
         sumLBD += sumLBD_;
         conflictsRestarts += conflictsRestarts_;
         if(status == l_False) {
@@ -775,13 +775,13 @@ void MaxSatSolver::progressionBinaryMinimize(int64_t limit) {
         uint64_t conflictsRestarts_ = conflictsRestarts;
         sumLBD = 0;
         conflictsRestarts = 0;
-//        setConfBudget(budgetConflics);
-//        setPropBudget(budgetPropagation);
-        timeBudget = Glucose::cpuTime() + 20.0; //(cpuTime < 30.0 ? cpuTime*2 : 60.0);
+        setConfBudget(budgetConflics);
+        setPropBudget(budgetPropagation);
+//        timeBudget = Glucose::cpuTime() + 20.0; //(cpuTime < 30.0 ? cpuTime*2 : 60.0);
         PseudoBooleanSolver::solve();
-//        budgetOff();
-        clearInterrupt();
-        timeBudget = 0.0;
+        budgetOff();
+//        clearInterrupt();
+//        timeBudget = 0.0;
         sumLBD += sumLBD_;
         conflictsRestarts += conflictsRestarts_;
         if(status == l_False) {
