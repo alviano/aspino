@@ -630,13 +630,13 @@ void MaxSatSolver::progressionMinimize(int64_t limit) {
         if(status == l_False) {
             trace(maxsat, 10, "Minimize: reduce to size " << conflict.size());
             progression = progressionFrom;
+            if(budget > budgetMin) budget /= 2;
             
             assumptions.moveTo(core);
             cancelUntil(0);
             trim();
             core.moveTo(assumptions);
             conflict.moveTo(core);
-            
             
             int j = 0;
             for(int i = 0, k = core.size() - 1; i < prec; i++) {

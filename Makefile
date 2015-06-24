@@ -24,7 +24,6 @@ linkflags.stats =
 SOURCE_DIR = src
 BUILD_DIR = build/$(BUILD)
 
-BINARY = $(BUILD_DIR)/aspino
 GCC = g++
 CXX = $(GCC)
 CXXFLAGS = $(cxxflags.$(BUILD)) -Isrc/glucose-syrup -Wall -Wextra
@@ -32,7 +31,10 @@ LINK = $(GCC)
 LINKFLAGS = $(linkflags.$(BUILD))
 LIBS = -lm -lz
 
+APPS = $(shell find $(SOURCE_DIR) -name '*.cpp')
 SRCS = $(shell find $(SOURCE_DIR) -name '*.cc')
+
+BINARIES = $(patsubst $(SOURCE_DIR)%.cpp,$(BUILD_DIR)%, $(APPS))
 
 OBJS = $(patsubst $(SOURCE_DIR)%.cc,$(BUILD_DIR)%.o, $(SRCS))
 DEPS = $(patsubst $(SOURCE_DIR)%.cc,$(BUILD_DIR)%.d, $(SRCS))
@@ -41,7 +43,7 @@ EXTERN = glucose-syrup
 
 .PHONY: $(EXTERN)
 
-all: $(EXTERN) $(BINARY)
+all: $(EXTERN) $(BINARIES)
 
 glucose-syrup:
 	@if [ ! -d src/glucose-syrup ]; then \
@@ -55,18 +57,26 @@ glucose-syrup:
 $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/%.d: $(SOURCE_DIR)/%.cc
 	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -MM -MT '$(@:.d=.o)' $< -MF $@
+
+$(BUILD_DIR)/%.d: $(SOURCE_DIR)/%.cpp
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -MM -MT '$(@:.d=.o)' $< -MF $@
 	
-$(BINARY): $(OBJS) $(DEPS)
-	$(LINK) $(OBJS) -o $(BINARY) $(LINKFLAGS) $(LIBS)
+$(BINARIES): % : %.o %.d $(OBJS) $(DEPS)
+	$(LINK) $@.o $(OBJS) -o $@ $(LINKFLAGS) $(LIBS)
 
-static: $(OBJS) $(DEPS)
-	$(LINK) $(OBJS) -static -o $(BINARY) $(LINKFLAGS) $(LIBS)
+static: $(BINARIES)
+	for bin in $(BINARIES); do \
+	    $(LINK) $$bin.o $(OBJS) -static -o $$bin-static $(LINKFLAGS) $(LIBS); \
+	    strip $$bin-static; \
+    done
 
-run: $(BINARY)
-	./$(BINARY)
 
 ########## Tests
 include tests/Makefile.tests.inc
@@ -76,9 +86,9 @@ include tests/Makefile.tests.inc
 .PHONY: clean-dep clean distclean
 
 clean-dep:
-	rm -f $(DEPS)
+	rm -f $(DEPS) $(patsubst $(SOURCE_DIR)%.cpp,$(BUILD_DIR)%.d, $(APPS))
 clean: clean-dep
-	rm -f $(OBJS)
+	rm -f $(OBJS) $(patsubst $(SOURCE_DIR)%.cpp,$(BUILD_DIR)%.o, $(APPS))
 
 distclean: clean
 	rm -fr $(BUILD_DIR)

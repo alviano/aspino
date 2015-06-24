@@ -41,6 +41,8 @@ using namespace std;
 static Glucose::EnumOption option_mode("MAIN", "mode", "How to interpret input.\n", "asp|sat|maxsat|pbs");
 Glucose::IntOption option_n("MAIN", "n", "Number of desired solutions. Non-positive integers are interpreted as unbounded.\n", 1, Glucose::IntRange(0, INT32_MAX));
 
+extern Glucose::EnumOption option_maxsat_strat;
+
 static aspino::AbstractSolver* solver;
 
 static void SIGINT_interrupt(int) { solver->interrupt(); }
@@ -63,9 +65,9 @@ int main(int argc, char** argv)
     Glucose::IntOption cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, Glucose::IntRange(0, INT32_MAX));
     Glucose::IntOption mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, Glucose::IntRange(0, INT32_MAX));
 
-//    gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-    Glucose::parseOptions(argc, argv, true);
+//    Glucose::parseOptions(argc, argv, true);
+    option_mode = "maxsat";
+    option_maxsat_strat = "kdyn";
 
     if(strcmp(option_mode, "asp") == 0)
         solver = new AspSolver();
