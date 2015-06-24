@@ -72,6 +72,7 @@ private:
     
     void trim();
     void progressionMinimize(int64_t limit);
+    void biprogressionMinimize(int64_t limit);
     void binaryMinimize(int64_t limit);
     void progressionBinaryMinimize(int64_t limit);
     void minimize();

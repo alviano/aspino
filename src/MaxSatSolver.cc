@@ -34,20 +34,20 @@ Glucose::IntOption option_maxsat_tag("MAXSAT", "maxsat-tag", "Parameter for maxs
 
 namespace aspino {
 
-#include <signal.h>
-static MaxSatSolver* solver;
-static void watchdog(int) {
-    assert(solver != NULL);
-    solver->onTick();
-    alarm(1);
-}
-void MaxSatSolver::onTick() {
-    trace(maxsat, 25, "Tick: " << Glucose::cpuTime() << "; LBD ratio: " << (sumLBD / conflictsRestarts));
-    if(timeBudget > 0.0 && Glucose::cpuTime() > timeBudget) {
-        trace(maxsat, 1, "interrupt!");
-        Solver::asynch_interrupt = true;
-    }
-}
+//#include <signal.h>
+//static MaxSatSolver* solver;
+//static void watchdog(int) {
+//    assert(solver != NULL);
+//    solver->onTick();
+//    alarm(1);
+//}
+//void MaxSatSolver::onTick() {
+//    trace(maxsat, 25, "Tick: " << Glucose::cpuTime() << "; LBD ratio: " << (sumLBD / conflictsRestarts));
+//    if(timeBudget > 0.0 && Glucose::cpuTime() > timeBudget) {
+//        trace(maxsat, 1, "interrupt!");
+//        Solver::asynch_interrupt = true;
+//    }
+//}
 
 template<class B>
 static int64_t parseLong(B& in) {
@@ -308,7 +308,7 @@ void MaxSatSolver::removeSoftLiteralsAtLevelZero() {
 }
 
 lbool MaxSatSolver::solve() {
-    solver = this;
+//    solver = this;
 //    signal(SIGALRM, watchdog);
 //    alarm(1);
 
@@ -402,6 +402,7 @@ void MaxSatSolver::solve_() {
         
         assert(decisionLevel() == 0);
         progressionMinimize(limit);
+//        biprogressionMinimize(limit);
 //        binaryMinimize(limit);
 //        progressionBinaryMinimize(limit);
         trim(); // last trim, just in case some new learned clause may help to further reduce the core
@@ -583,8 +584,9 @@ void MaxSatSolver::progressionMinimize(int64_t limit) {
     
     double cpuTime = Glucose::cpuTime() - lastCallCpuTime;
     uint64_t budget = conflicts - lastConflict;
-    if(budget > budget * 60 / cpuTime) budget = budget * 60 / cpuTime;
-    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << static_cast<int>(cpuTime) << " seconds; each check with budget " << budget << ")");
+    uint64_t budgetMin = fmax(100, budget / cpuTime);
+    if(budget > budget * 30 / cpuTime) budget = budget * 30 / cpuTime;
+    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << cpuTime << " seconds; each check with budget " << budget << ")");
     trim();
     if(budget == 0) return;
 
@@ -603,6 +605,7 @@ void MaxSatSolver::progressionMinimize(int64_t limit) {
             if(progression == progressionFrom) break;
             progression = progressionFrom;
             fixed = assumptions.size();
+            if(budget > budgetMin) budget /= 2;
             continue;
         }
 
@@ -666,16 +669,109 @@ void MaxSatSolver::progressionMinimize(int64_t limit) {
     core.moveTo(conflict);
 }
 
+void MaxSatSolver::biprogressionMinimize(int64_t limit) {
+    assert(decisionLevel() == 0);
+    if(conflict.size() <= 1) return;
+    
+    double cpuTime = Glucose::cpuTime() - lastCallCpuTime;
+    uint64_t budget = conflicts - lastConflict;
+    if(budget > budget * 30 / cpuTime) budget = budget * 30 / cpuTime;
+    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << cpuTime << " seconds; each check with budget " << budget << ")");
+    trim();
+    if(budget == 0) return;
+
+    vec<Lit> core;
+    conflict.moveTo(core);
+    
+    vec<Lit> allAssumptions;
+    for(int i = 0; i < core.size(); i++) allAssumptions.push(~core[i]);
+    
+    assumptions.clear();
+    const int progressionFrom = 1;
+    int progression = progressionFrom;
+    bool increasing = true;
+    int fixed = 0;
+    while(lowerbound + limit < upperbound) {
+        if(increasing && fixed + progression >= allAssumptions.size()) {
+            increasing = false;
+//            if(progression == progressionFrom) break;
+//            progression = progressionFrom;
+            progression /= 2;
+            fixed = assumptions.size();
+//            if(budget > 100) budget /= 2;
+            continue;
+        }
+        if(progression == 0) break;
+        if(!increasing && fixed + progression >= allAssumptions.size()) { progression /= 2; continue; }
+
+        trace(maxsat, 15, "Minimize: progress to " << progression << "; fixed = " << fixed);
+        
+        int prec = assumptions.size();
+        for(int i = assumptions.size(); i < fixed + progression; i++) {
+            assert(i < allAssumptions.size());
+            assumptions.push(allAssumptions[i]);
+        }
+        
+        float sumLBD_ = sumLBD;
+        uint64_t conflictsRestarts_ = conflictsRestarts;
+        sumLBD = 0;
+        conflictsRestarts = 0;
+        setConfBudget(budget);
+        PseudoBooleanSolver::solve();
+        budgetOff();
+        sumLBD += sumLBD_;
+        conflictsRestarts += conflictsRestarts_;
+
+        if(status == l_False) {
+            trace(maxsat, 10, "Minimize: reduce to size " << conflict.size());
+//            progression = progressionFrom;
+            increasing = false;
+            progression /= 2;
+            
+            assumptions.moveTo(core);
+            cancelUntil(0);
+            trim();
+            core.moveTo(assumptions);
+            conflict.moveTo(core);
+            
+            
+            int j = 0;
+            for(int i = 0, k = core.size() - 1; i < prec; i++) {
+                if(k < 0) break;
+                if(assumptions[i] != ~core[k]) continue;
+                assumptions[j++] = assumptions[i];
+                k--;
+            }
+            assumptions.shrink(assumptions.size() - j);
+            fixed = assumptions.size();
+            
+            j = 0;
+            for(int i = 0, k = core.size() - 1; i < allAssumptions.size(); i++) {
+                if(k < 0) break;
+                if(allAssumptions[i] != ~core[k]) continue;
+                allAssumptions[j++] = allAssumptions[i];
+                k--;
+            }
+            allAssumptions.shrink(allAssumptions.size() - j);
+        }
+        else {
+            trace(maxsat, 20, (status == l_True ? "SAT!" : "UNDEF"));
+            progression = increasing ? progression * 2 : progression / 2;
+            if(!increasing && status == l_Undef) fixed = assumptions.size();
+            if(status == l_True) updateUpperBound();
+        }
+        cancelUntil(0);
+    }
+    core.moveTo(conflict);
+}
+
 void MaxSatSolver::progressionBinaryMinimize(int64_t limit) {
     assert(decisionLevel() == 0);
     if(conflict.size() <= 1) return;
     
     double cpuTime = Glucose::cpuTime() - lastCallCpuTime;
     uint64_t budgetConflics = conflicts - lastConflict;
-    uint64_t budgetPropagation = propagations - lastPropagation;
-    if(budgetConflics > budgetConflics * 60 / cpuTime) budgetConflics = budgetConflics * 10 / cpuTime;
-    if(budgetPropagation > budgetPropagation * 60 / cpuTime) budgetPropagation = budgetPropagation * 10 / cpuTime;
-    trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << (propagations - lastPropagation) << " propagations; " << cpuTime << " seconds; each check with budget: " << budgetConflics << " conflicts, " << budgetPropagation << " propagations)");
+    if(budgetConflics > budgetConflics * 30 / cpuTime) budgetConflics = budgetConflics * 30 / cpuTime;
     trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts); " << cpuTime << " seconds)");
     trim();
     if(conflicts == lastConflict) return;
@@ -706,12 +802,8 @@ void MaxSatSolver::progressionBinaryMinimize(int64_t limit) {
         sumLBD = 0;
         conflictsRestarts = 0;
         setConfBudget(budgetConflics);
-        setPropBudget(budgetPropagation);
-//        timeBudget = Glucose::cpuTime() + 10.0; //(cpuTime < 30.0 ? cpuTime : 30.0);
         PseudoBooleanSolver::solve();
         budgetOff();
-//        clearInterrupt();
-//        timeBudget = 0.0;
         sumLBD += sumLBD_;
         conflictsRestarts += conflictsRestarts_;
         if(status == l_False) {
@@ -753,13 +845,12 @@ void MaxSatSolver::progressionBinaryMinimize(int64_t limit) {
             
             break;
         }
-        else {
-            trace(maxsat, 20, (status == l_True ? "SAT!" : "UNDEF"));
-            progression *= 2;
-            if(status == l_True) {
-                while(sat.size() < assumptions.size()) sat.push(assumptions[sat.size()]);
-                updateUpperBound();
-            }
+
+        trace(maxsat, 20, (status == l_True ? "SAT!" : "UNDEF"));
+        progression *= 2;
+        if(status == l_True) {
+            while(sat.size() < assumptions.size()) sat.push(assumptions[sat.size()]);
+            updateUpperBound();
         }
         cancelUntil(0);
     }
@@ -768,7 +859,7 @@ void MaxSatSolver::progressionBinaryMinimize(int64_t limit) {
     int fixed = assumptions.size();
     int toAdd = (core.size() - fixed) / 2;
     while(lowerbound + limit < upperbound) {
-        if(toAdd == 0) break;
+        if(toAdd <= core.size() / 10) break;
 
         trace(maxsat, 15, "Minimize: try with " << fixed << "+" << toAdd << " literals; LBD ratio: " << (sumLBD / conflictsRestarts));
         
@@ -783,12 +874,8 @@ void MaxSatSolver::progressionBinaryMinimize(int64_t limit) {
         sumLBD = 0;
         conflictsRestarts = 0;
         setConfBudget(budgetConflics);
-        setPropBudget(budgetPropagation);
-//        timeBudget = Glucose::cpuTime() + 20.0; //(cpuTime < 30.0 ? cpuTime*2 : 60.0);
         PseudoBooleanSolver::solve();
         budgetOff();
-//        clearInterrupt();
-//        timeBudget = 0.0;
         sumLBD += sumLBD_;
         conflictsRestarts += conflictsRestarts_;
         if(status == l_False) {
