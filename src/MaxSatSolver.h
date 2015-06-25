@@ -52,7 +52,7 @@ private:
     uint64_t lastConflict;
     uint64_t lastPropagation;
     double lastCallCpuTime;
-    double timeBudget;
+//    double timeBudget;
     
     void sameSoftVar(Lit soft, int64_t weight);
     

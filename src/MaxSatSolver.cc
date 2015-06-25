@@ -315,13 +315,13 @@ lbool MaxSatSolver::solve() {
     inClauses = clauses.size();
     upperbound = LONG_MAX;
 
-    // spend some time to identify easy backbones literals
-    timeBudget = Glucose::cpuTime() + 10.0;
-    PseudoBooleanSolver::solve();
-    clearInterrupt();
-    timeBudget = 0.0;
-    if(status == l_False) { cout << "s UNSATISFIABLE" << endl; return l_False; }
-    if(status == l_True) updateUpperBound();
+//    // spend some time to identify easy backbones literals
+//    timeBudget = Glucose::cpuTime() + 10.0;
+//    PseudoBooleanSolver::solve();
+//    clearInterrupt();
+//    timeBudget = 0.0;
+//    if(status == l_False) { cout << "s UNSATISFIABLE" << endl; return l_False; }
+//    if(status == l_True) updateUpperBound();
     cancelUntil(0);
 
     removeSoftLiteralsAtLevelZero();
@@ -472,11 +472,11 @@ void MaxSatSolver::progressionBinaryFind(int64_t limit) {
 //        uint64_t conflictsRestarts_ = conflictsRestarts;
         sumLBD = 0.0;
         conflictsRestarts = 0;
-        timeBudget = Glucose::cpuTime() + 3.0;
+//        timeBudget = Glucose::cpuTime() + 3.0;
         assert(decisionLevel() == 0);
         PseudoBooleanSolver::solve();
-        clearInterrupt();
-        timeBudget = 0.0;
+//        clearInterrupt();
+//        timeBudget = 0.0;
         
         if(status == l_False) {
             trace(maxsat, 10, "Find: core of size " << conflict.size());
@@ -519,11 +519,11 @@ void MaxSatSolver::progressionBinaryFind(int64_t limit) {
 //        uint64_t conflictsRestarts_ = conflictsRestarts;
         sumLBD = 0.0;
         conflictsRestarts = 0;
-        timeBudget = Glucose::cpuTime() + 3.0;
+//        timeBudget = Glucose::cpuTime() + 3.0;
         assert(decisionLevel() == 0);
         PseudoBooleanSolver::solve();
-        clearInterrupt();
-        timeBudget = 0.0;
+//        clearInterrupt();
+//        timeBudget = 0.0;
         if(status == l_False) {
             trace(maxsat, 10, "Find: core of size " << conflict.size());
             return;
