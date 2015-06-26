@@ -317,9 +317,9 @@ lbool MaxSatSolver::solve() {
 
 //    // spend some time to identify easy backbones literals
 //    timeBudget = Glucose::cpuTime() + 10.0;
-    setConfBudget(1000);
+//    setConfBudget(1000);
     PseudoBooleanSolver::solve();
-    budgetOff();
+//    budgetOff();
 //    clearInterrupt();
 //    timeBudget = 0.0;
     if(status == l_False) { cout << "s UNSATISFIABLE" << endl; return l_False; }
@@ -586,7 +586,7 @@ void MaxSatSolver::progressionMinimize(int64_t limit) {
     
     double cpuTime = Glucose::cpuTime() - lastCallCpuTime;
     uint64_t budget = conflicts - lastConflict;
-    uint64_t budgetMin = fmax(budget, budget / (cpuTime < 1.0 ? 1 : static_cast<int>(cpuTime)));
+    uint64_t budgetMin = budget / cpuTime;
     if(budget > budget * 30 / cpuTime) budget = budget * 30 / cpuTime;
     trace(maxsat, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << cpuTime << " seconds; each check with budget " << budget << ")");
     trim();
