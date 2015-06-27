@@ -1300,11 +1300,20 @@ void MaxSatSolver::corestrat_one_neg_wc(int64_t limit) {
 
 void MaxSatSolver::corestrat_one_pmres(int64_t limit) {
     assert(decisionLevel() == 0);
-//    if(conflict.size() <= 4) { corestrat_pmres(limit); return; }
     
     trace(maxsat, 10, "Use algorithm one-pmres");
     
-    const int N = option_maxsat_tag;
+    const int b = option_maxsat_tag * 2;
+    const int m = ceil(2.0 * conflict.size() / (b-2.0));
+    const int N = ceil(
+            (
+                conflict.size()         // literals in the core
+                + conflict.size() - 1   // new soft literals
+                + 2 * (m-1)             // new connectors
+            ) / (m * 2.0)
+        );
+    // ceil((conflict.size() + m) / static_cast<double>(m));
+    trace(maxsat, 15, "At most " << N*2 << " elements in " << m << " new constraints");
 
     Lit prec = lit_Undef;
     for(;;) {
@@ -1345,6 +1354,7 @@ void MaxSatSolver::corestrat_one_pmres(int64_t limit) {
             }
         }
         
+        trace(maxsat, 25, "Add constraint of size " << cc.size());
         addConstraint(cc);
         
         if(conflict.size() == 0) break;
