@@ -94,6 +94,7 @@ void MaxSatSolver::sameSoftVar(Lit soft, int64_t weight) {
     assert(decisionLevel() == 0);
     int pos = 0;
     for(int i = 0; i < softLiterals.size(); i++, pos++) if(var(softLiterals[i]) == var(soft)) break;
+    assert(pos < softLiterals.size());
     
     if(softLiterals[pos] == soft) {
         weights[var(soft)] += weight;
@@ -105,7 +106,9 @@ void MaxSatSolver::sameSoftVar(Lit soft, int64_t weight) {
         setFrozen(var(soft), false);
         softLiterals[pos] = softLiterals[softLiterals.size()-1];
         softLiterals.shrink_(1);
-    }else if(weights[var(soft)] < weight) {
+        weights[var(soft)] = 0;
+    }
+    else if(weights[var(soft)] < weight) {
         updateLowerBound(weights[var(soft)]);
         softLiterals[pos] = soft;
         weights[var(soft)] = weight - weights[var(soft)];
