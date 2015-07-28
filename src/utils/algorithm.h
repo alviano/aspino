@@ -45,6 +45,8 @@ template <class T>
 void quickSort(vec<T>& arr, int left, int right) {
     int i = left, j = right;
     int tmp;
+    assert((left + right) / 2 >= 0);
+    assert_msg((left + right) / 2 < arr.size(), "Accessing element " << (left + right) / 2 << " in array of size " << arr.size());
     int pivot = arr[(left + right) / 2];
 
     /* partition */
@@ -71,7 +73,7 @@ void quickSort(vec<T>& arr, int left, int right) {
 
 template <class T>
 void sort(vec<T>& v) {
-    quickSort(v, 0, v.size()-1);
+    if(v.size() > 1) quickSort(v, 0, v.size()-1);
 }
 
 } // namespace aspino
