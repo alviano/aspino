@@ -21,6 +21,7 @@
 #include "PseudoBooleanSolver.h"
 #include "MaxSatSolver.h"
 #include "AspSolver.h"
+#include "FairSatSolver.h"
 #include "utils/trace.h"
 
 #include <utils/Options.h>
@@ -38,7 +39,7 @@
 using namespace aspino;
 using namespace std;
 
-static Glucose::EnumOption option_mode("MAIN", "mode", "How to interpret input.\n", "asp|sat|maxsat|pbs");
+static Glucose::EnumOption option_mode("MAIN", "mode", "How to interpret input.\n", "asp|sat|maxsat|pbs|fairsat");
 Glucose::IntOption option_n("MAIN", "n", "Number of desired solutions. Non-positive integers are interpreted as unbounded.\n", 1, Glucose::IntRange(0, INT32_MAX));
 
 static aspino::AbstractSolver* solver;
@@ -73,6 +74,8 @@ int main(int argc, char** argv)
         solver = new MaxSatSolver();
     else if(strcmp(option_mode, "pbs") == 0)
         solver = new PseudoBooleanSolver();
+    else if(strcmp(option_mode, "fairsat") == 0)
+        solver = new FairSatSolver();
     else
         assert(0);
     

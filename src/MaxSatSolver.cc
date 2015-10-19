@@ -50,7 +50,7 @@ namespace aspino {
 //}
 
 template<class B>
-static int64_t parseLong(B& in) {
+int64_t parseLong(B& in) {
     int64_t    val = 0;
     bool    neg = false;
     skipWhitespace(in);

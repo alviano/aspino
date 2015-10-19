@@ -24,5 +24,6 @@ Glucose::IntOption option_trace_pbs("TRACE", "trace-pbs", "Set trace level of PB
 Glucose::IntOption option_trace_maxsat("TRACE", "trace-maxsat", "Set trace level of MAXSAT solving.", 0, Glucose::IntRange(0, INT32_MAX));
 Glucose::IntOption option_trace_asp("TRACE", "trace-asp", "Set trace level of ASP solving.", 0, Glucose::IntRange(0, INT32_MAX));
 Glucose::IntOption option_trace_asp_pre("TRACE", "trace-asp-pre", "Set trace level of ASP solving (preprocessing).", 0, Glucose::IntRange(0, INT32_MAX));
+Glucose::IntOption option_trace_fairsat("TRACE", "trace-fairsat", "Set trace level of FairSAT solving.", 0, Glucose::IntRange(0, INT32_MAX));
 
 #endif

@@ -37,7 +37,7 @@ public:
     inline void pop() { lits.pop(); coeffs.pop(); }
     
     vec<Lit> lits;
-    vec<int> coeffs;
+    vec<int64_t> coeffs;
     int bound;
     int loosable;
     vec<int> trail;
@@ -82,6 +82,8 @@ public:
     bool addConstraint(CardinalityConstraint& wc);
     bool addEquality(CardinalityConstraint& wc);
     void attach(CardinalityConstraint& wc);
+    
+    void freeze();
     
 protected:
     virtual CRef morePropagate();

@@ -123,6 +123,16 @@ void PseudoBooleanSolver::parse(gzFile in_) {
         }
     }
     inVars = nVars();
+    freeze();
+}
+
+void PseudoBooleanSolver::freeze() {
+    for(int i = 0; i < cconstraints.size(); i++)
+        for(int j = 0; j < cconstraints[i]->size(); j++)
+            setFrozen(var(cconstraints[i]->lits[j]), true);
+    for(int i = 0; i < wconstraints.size(); i++)
+        for(int j = 0; j < wconstraints[i]->size(); j++)
+            setFrozen(var(wconstraints[i]->lits[j]), true);
 }
 
 bool PseudoBooleanSolver::addConstraint(WeightConstraint& wc) {
