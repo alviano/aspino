@@ -19,6 +19,9 @@
 
 #include <core/Dimacs.h>
 
+Glucose::EnumOption option_fairsat_alg("FAIRSAT", "fairsat-alg", "Set search algorithm.", "bb|binary|progression");
+Glucose::BoolOption option_fairsat_printmodel("FAIRSAT", "fairsat-print-model", "Print optimal model if found.", true);
+
 namespace aspino {
 
 template<class B, class Solver>
@@ -50,7 +53,10 @@ void ObjectFunction::init(vec<Lit>& lits_, vec<int64_t>& coeffs_) {
 }
 
 FairSatSolver::FairSatSolver() : PseudoBooleanSolver() {
-    
+    if(strcmp(option_fairsat_alg, "bb") == 0) search_alg = &FairSatSolver::search_alg_bb;
+    else if(strcmp(option_fairsat_alg, "binary") == 0) search_alg = &FairSatSolver::search_alg_binary;
+    else if(strcmp(option_fairsat_alg, "progression") == 0) search_alg = &FairSatSolver::search_alg_progression;
+    else assert(0);
 }
 
 FairSatSolver::~FairSatSolver() {
@@ -180,7 +186,18 @@ lbool FairSatSolver::solve() {
     lowerbound = -1;
     
     cout << "c searching in [" << lowerbound << ".." << upperbound << "]" << endl;
+    (this->*search_alg)();
+    if(lowerbound == -1)
+        cout << "s UNSATISFIABLE" << endl;
+    else {
+        cout << "s OPTIMUM FOUND" << endl;
+        if(option_fairsat_printmodel) printModel();
+    }
     
+    return status;
+}
+
+void FairSatSolver::search_alg_bb() {
     for(;;) {
         setMinObjectFunction(lowerbound + 1);
         PseudoBooleanSolver::solve();
@@ -188,24 +205,73 @@ lbool FairSatSolver::solve() {
         if(status == l_True) {
             updateLowerBound();
 
-            cout << "c object function values:";
             cout << "o " << lowerbound << endl;
-            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << objectFunctions[i]->modelValue;
-            cout << endl;
-
-            if(lowerbound == upperbound) break;
+//            cout << "c object function values:";
+//            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << objectFunctions[i]->modelValue;
+//            cout << endl;
+//            cout << "c unsatisfied values:";
+//            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << (objectFunctions[i]->sumOfInCoeffs - objectFunctions[i]->modelValue);
+//            cout << endl;
         }
+        if(lowerbound == upperbound) break;
     }
-    
-    if(lowerbound == 0)
-        cout << "s UNSATISFIABLE" << endl;
-    else {
-        cout << "s OPTIMUM FOUND" << endl;
-        
-        printModel();
-    }
-    
-    return status;
+}
+
+void FairSatSolver::search_alg_binary() {
+    for(;;) {
+        assert(lowerbound < upperbound);
+        int64_t mid = (lowerbound + upperbound) / 2;
+        if(mid == lowerbound) mid++;
+        setMinObjectFunction(mid);
+        PseudoBooleanSolver::solve();
+        if(status == l_False) {
+            upperbound = mid-1;
+            cout << "c ub " << upperbound << endl;
+        }
+        else if(status == l_True) {
+            updateLowerBound();
+
+            cout << "o " << lowerbound << endl;
+//            cout << "c object function values:";
+//            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << objectFunctions[i]->modelValue;
+//            cout << endl;
+//            cout << "c unsatisfied values:";
+//            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << (objectFunctions[i]->sumOfInCoeffs - objectFunctions[i]->modelValue);
+//            cout << endl;
+        }
+        if(lowerbound == upperbound) break;
+    }    
+}
+
+void FairSatSolver::search_alg_progression() {
+    int64_t progression = 1;
+    for(;;) {
+        assert(lowerbound < upperbound);
+        if(lowerbound + progression > upperbound) progression = 1;
+        setMinObjectFunction(lowerbound + progression);
+//        cout << progression << endl;
+        setConfBudget(100);
+        PseudoBooleanSolver::solve();
+        budgetOff();
+        if(status == l_False) {
+            upperbound = lowerbound + progression - 1;
+            cout << "c ub " << upperbound << endl;
+        }
+        else if(status == l_True) {
+            updateLowerBound();
+
+            cout << "o " << lowerbound << endl;
+//            cout << "c object function values:";
+//            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << objectFunctions[i]->modelValue;
+//            cout << endl;
+//            cout << "c unsatisfied values:";
+//            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << (objectFunctions[i]->sumOfInCoeffs - objectFunctions[i]->modelValue);
+//            cout << endl;
+        }
+        else { progression = 1; continue; }
+        if(lowerbound == upperbound) break;
+        progression *= 2;
+    }    
 }
 
 } // namespace aspino

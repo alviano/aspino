@@ -61,6 +61,11 @@ private:
     vec<ObjectFunction*> objectFunctions;
     int64_t lowerbound;
     int64_t upperbound;
+    
+    void (FairSatSolver::*search_alg)();
+    void search_alg_bb();
+    void search_alg_binary();
+    void search_alg_progression();
 };
 
 
