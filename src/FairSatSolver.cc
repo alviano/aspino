@@ -123,6 +123,7 @@ void FairSatSolver::parse(gzFile in_) {
         cerr << "WARNING! DIMACS header mismatch: wrong number of object functions." << endl, exit(3);
 
     upperbound = processObjectFunctions();
+    assert(upperbound >= 0);
     freeze();
 }
 
@@ -144,8 +145,8 @@ int64_t FairSatSolver::processObjectFunctions() {
         objF.sumOfInCoeffs = wc.bound;
         if(wc.bound < min) min = wc.bound;
         
-        int n = ceil(log2(wc.bound));
-        for(int i = 0, w = 1; i < n; i++, w *= 2) {
+        int64_t n = ceil(log2(wc.bound));
+        for(int64_t i = 0, w = 1; i < n; i++, w *= 2) {
             newVar();
             wc.lits.push(~mkLit(nVars()-1));
             wc.coeffs.push(w);
@@ -162,7 +163,7 @@ void FairSatSolver::setMinObjectFunction(int64_t min) {
         int64_t mask = objectFunctions[i]->sumOfInCoeffs - min;
         assert(mask >= 0);
         for(int j = 0; j < objectFunctions[i]->selectorVars.size(); j++) {
-            assumptions.push(mkLit(objectFunctions[i]->selectorVars[j], (1 << j) & mask));
+            assumptions.push(mkLit(objectFunctions[i]->selectorVars[j], (1ll << j) & mask));
         }
     }
 }

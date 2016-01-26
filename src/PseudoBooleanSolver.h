@@ -22,6 +22,9 @@
 
 namespace aspino {
 
+template<class B>
+int64_t parseLong(B& in);
+    
 class WeightConstraint {
     friend ostream& operator<<(ostream& out, const WeightConstraint& wc) { return out << wc.toString(); }
 public:
@@ -39,7 +42,7 @@ public:
     vec<Lit> lits;
     vec<int64_t> coeffs;
     int64_t bound;
-    int loosable;
+    int64_t loosable;
     vec<int> trail;
     int first;
 };

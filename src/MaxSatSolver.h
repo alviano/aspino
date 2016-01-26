@@ -22,9 +22,6 @@
 
 namespace aspino {
 
-template<class B>
-int64_t parseLong(B& in);
-    
 class MaxSatSolver : public PseudoBooleanSolver {
 public:
     MaxSatSolver();

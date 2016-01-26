@@ -29,7 +29,21 @@ using namespace std;
 namespace aspino {
 
 const CRef PseudoBooleanSolver::CRef_MoreConflict = CRef_Undef - 1;
-    
+ 
+
+template<class B>
+int64_t parseLong(B& in) {
+    int64_t    val = 0;
+    bool    neg = false;
+    skipWhitespace(in);
+    if      (*in == '-') neg = true, ++in;
+    else if (*in == '+') ++in;
+    if (*in < '0' || *in > '9') fprintf(stderr, "PARSE ERROR! Unexpected char: %c\n", *in), exit(3);
+    while (*in >= '0' && *in <= '9')
+        val = val*10 + (*in - '0'),
+        ++in;
+    return neg ? -val : val; }
+   
 //void WeightConstraint::free(Glucose::ClauseAllocator& ca) {
 //    for(int i = 0; i < reasons.size(); i++)
 //        if(reasons[i] != CRef_Undef)
@@ -86,14 +100,14 @@ bool PseudoBooleanSolver::readConstraint(Glucose::StreamBuffer& in, WeightConstr
             }
             ++in;
             skipWhitespace(in);
-            wc.bound = parseInt(in);
+            wc.bound = parseLong(in);
             skipWhitespace(in);
             if(*in != ';') cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);
             ++in;
             return ret;
         }
         
-        wc.coeffs.push(parseInt(in));
+        wc.coeffs.push(parseLong(in));
         skipWhitespace(in);
         if(*in != 'x') cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);
         ++in;
@@ -202,7 +216,7 @@ bool PseudoBooleanSolver::addConstraint(WeightConstraint& wc) {
        int newn = 0;
        for(int i = 1; i < n; i++) {
           if(wc.coeffs[i-1] > wc.coeffs[i]) {
-             int ctmp = wc.coeffs[i-1];
+             int64_t ctmp = wc.coeffs[i-1];
              wc.coeffs[i-1] = wc.coeffs[i];
              wc.coeffs[i] = ctmp;
              

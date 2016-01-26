@@ -39,7 +39,7 @@ public:
     int64_t modelValue;
     
 private:
-    ObjectFunction(ObjectFunction& init) {}
+    ObjectFunction(ObjectFunction&) {}
 };
     
 class FairSatSolver : public PseudoBooleanSolver {
