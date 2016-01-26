@@ -38,7 +38,7 @@ public:
     
     vec<Lit> lits;
     vec<int64_t> coeffs;
-    int bound;
+    int64_t bound;
     int loosable;
     vec<int> trail;
     int first;
@@ -126,7 +126,7 @@ protected:
     
 private:
     bool readConstraint(Glucose::StreamBuffer& in, WeightConstraint& wc);
-    static int gcd(int u, int v);
+    static int64_t gcd(int64_t u, int64_t v);
 };
 
 } // namespace aspino

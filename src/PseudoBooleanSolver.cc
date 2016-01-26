@@ -171,8 +171,8 @@ bool PseudoBooleanSolver::addConstraint(WeightConstraint& wc) {
     }
     
     // flattening coefficients greater than bound and compute gcd and sum
-    int d = wc.bound;
-    int sum = 0;
+    int64_t d = wc.bound;
+    int64_t sum = 0;
     j = 0;
     for(int i = 0; i < wc.size(); i++) {
         wc.coeffs[j] = wc.coeffs[i] > wc.bound ? wc.bound : wc.coeffs[i];
@@ -748,14 +748,14 @@ void PseudoBooleanSolver::onCancel() {
     }
 }
 
-int PseudoBooleanSolver::gcd(int a, int b) {
+int64_t PseudoBooleanSolver::gcd(int64_t a, int64_t b) {
     assert(a > 0);
     assert(b > 0);
     
     if(a <= b)
         b = b % a;
 
-    int tmp;
+    int64_t tmp;
     while(b > 0) {
         tmp = a;
         a = b;

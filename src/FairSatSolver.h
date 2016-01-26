@@ -37,6 +37,9 @@ public:
     int64_t sumOfInCoeffs;
     vec<Var> selectorVars;
     int64_t modelValue;
+    
+private:
+    ObjectFunction(ObjectFunction& init) {}
 };
     
 class FairSatSolver : public PseudoBooleanSolver {

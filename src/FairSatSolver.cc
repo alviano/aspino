@@ -159,7 +159,7 @@ int64_t FairSatSolver::processObjectFunctions() {
 void FairSatSolver::setMinObjectFunction(int64_t min) {
     assumptions.clear();
     for(int i = 0; i < objectFunctions.size(); i++) {
-        int mask = objectFunctions[i]->sumOfInCoeffs - min;
+        int64_t mask = objectFunctions[i]->sumOfInCoeffs - min;
         assert(mask >= 0);
         for(int j = 0; j < objectFunctions[i]->selectorVars.size(); j++) {
             assumptions.push(mkLit(objectFunctions[i]->selectorVars[j], (1 << j) & mask));
