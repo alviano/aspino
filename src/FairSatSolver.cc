@@ -145,8 +145,8 @@ int64_t FairSatSolver::processObjectFunctions() {
         objF.sumOfInCoeffs = wc.bound;
         if(wc.bound < min) min = wc.bound;
         
-        int64_t n = ceil(log2(wc.bound));
-        for(int64_t i = 0, w = 1; i < n; i++, w *= 2) {
+        int64_t n = floor(log2(wc.bound));
+        for(int64_t i = 0, w = 1; i <= n; i++, w *= 2) {
             newVar();
             wc.lits.push(~mkLit(nVars()-1));
             wc.coeffs.push(w);
@@ -251,9 +251,9 @@ void FairSatSolver::search_alg_progression() {
         if(lowerbound + progression > upperbound) progression = 1;
         setMinObjectFunction(lowerbound + progression);
 //        cout << progression << endl;
-        setConfBudget(100);
+//        setConfBudget(100);
         PseudoBooleanSolver::solve();
-        budgetOff();
+//        budgetOff();
         if(status == l_False) {
             upperbound = lowerbound + progression - 1;
             cout << "c ub " << upperbound << endl;
@@ -269,7 +269,7 @@ void FairSatSolver::search_alg_progression() {
 //            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << (objectFunctions[i]->sumOfInCoeffs - objectFunctions[i]->modelValue);
 //            cout << endl;
         }
-        else { progression = 1; continue; }
+//        else { progression = 1; continue; }
         if(lowerbound == upperbound) break;
         progression *= 2;
     }    
