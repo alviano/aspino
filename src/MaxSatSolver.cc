@@ -75,6 +75,12 @@ MaxSatSolver::MaxSatSolver() : lowerbound(0), lastConflict(0), lastPropagation(0
 MaxSatSolver::~MaxSatSolver() {
 }
 
+void MaxSatSolver::interrupt() { 
+    cout << "s UNKNOWN" << endl;
+    if(lowerbound != -1 && option_maxsat_printmodel) printModel();
+    this->exit(1);
+}
+
 void MaxSatSolver::sameSoftVar(Lit soft, int64_t weight) {
     assert(weights[var(soft)] != 0);
     assert(decisionLevel() == 0);

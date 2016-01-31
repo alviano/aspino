@@ -131,6 +131,12 @@ void FairSatSolver::parse(gzFile in_) {
     freeze();
 }
 
+void FairSatSolver::interrupt() { 
+    cout << "s UNKNOWN" << endl;
+    if(lowerbound != -1 && option_fairsat_printmodel) printModel();
+    this->exit(1);
+}
+
 void FairSatSolver::addObjectFunction(vec<Lit>& lits, vec<int64_t>& coeffs) {
     ObjectFunction* objF = new ObjectFunction;
     objF->init(lits, coeffs);

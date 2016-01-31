@@ -47,7 +47,7 @@ public:
     FairSatSolver();
     virtual ~FairSatSolver();
     
-    virtual void interrupt() { cout << "s UNKNOWN" << endl; this->exit(1); }
+    virtual void interrupt();
     
     virtual void parse(gzFile in);
     
