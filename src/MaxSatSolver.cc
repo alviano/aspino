@@ -77,7 +77,7 @@ MaxSatSolver::~MaxSatSolver() {
 
 void MaxSatSolver::interrupt() { 
     cout << "s UNKNOWN" << endl;
-    if(lowerbound != -1 && option_maxsat_printmodel) printModel();
+    if(upperbound != LONG_MAX && option_maxsat_printmodel) printModel();
     this->exit(1);
 }
 
