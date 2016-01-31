@@ -39,7 +39,7 @@ static void readObjFunc(B& in, Solver& S, vec<Lit>& lits, vec<int64_t>& coeffs) 
     }
     for(int i = 0; i < size; i++) {
         coeffs.push(parseLong(in));
-        if (coeffs.last() == 0) cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);
+        if(coeffs.last() <= 0) cerr << "PARSE ERROR! The weights must be nonnegative." << endl, exit(3);
     }
     parsed_lit = parseInt(in);
     if (parsed_lit != 0) cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);    
@@ -87,6 +87,10 @@ void FairSatSolver::parse(gzFile in_) {
                 vars = parseInt(in);
                 inClauses = parseInt(in);
                 objFuncs = parseLong(in);
+                
+                if(vars <= 0) cerr << "PARSE ERROR! The number of variables must be positive." << endl, exit(3);
+                if(inClauses <= 0) cerr << "PARSE ERROR! The number of clauses must be positive." << endl, exit(3);
+                if(objFuncs <= 0) cerr << "PARSE ERROR! The number of object functions must be positive." << endl, exit(3);
                 
                 nInVars(vars);
                 while(nVars() < nInVars()) newVar();
