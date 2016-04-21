@@ -44,6 +44,7 @@ using Glucose::Clause;
 
 ostream& operator<<(ostream& o, lbool l);
 ostream& operator<<(ostream& o, const Lit& l);
+ostream& operator<<(ostream& o, const Clause& c);
 template <class T> ostream& operator<<(ostream& o, const vec<T>& v) {
     o << "[ ";
     for(int i = 0; i < v.size(); i++)

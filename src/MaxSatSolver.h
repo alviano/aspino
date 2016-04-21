@@ -52,11 +52,15 @@ private:
     uint64_t lastConflict;
     uint64_t lastPropagation;
     double lastCallCpuTime;
-//    double timeBudget;
+    double timeBudget;
+    
+    void quickSort(int left, int right);
     
     void sameSoftVar(Lit soft, int64_t weight);
     
     void removeSoftLiteralsAtLevelZero();
+    bool tautology(Var var, CRef c1, CRef c2);
+    void bce();
     void preprocess();
 //    void initUpperBound();
     void hardening();
@@ -64,6 +68,9 @@ private:
     int64_t computeNextLimit(int64_t limit) const;
     void solveCurrentLevel();
     void solve_();
+    
+    int64_t nextUp(int64_t curr) const;
+    int64_t computeConflictWeight() const;
     
     void updateLowerBound(int64_t limit);
     void updateUpperBound();
@@ -90,6 +97,9 @@ private:
     void corestrat_pmres_split_conj(int64_t limit);
     void corestrat_pmreslog(int64_t limit);
     void corestrat_kdyn(int64_t limit);
+    void corestrat_wone(int64_t limit);
+    void corestrat_wone_gcd(int64_t limit);
+    void corestrat_wone_remainder(int64_t limit);
 
     enum DisjunctCores {NO = 0, PRE, ALL};
     DisjunctCores disjcores;

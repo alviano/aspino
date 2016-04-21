@@ -44,7 +44,7 @@ void reverse(vec<T>& v) {
 template <class T>
 void quickSort(vec<T>& arr, int left, int right) {
     int i = left, j = right;
-    int tmp;
+    T tmp;
     assert((left + right) / 2 >= 0);
     assert_msg((left + right) / 2 < arr.size(), "Accessing element " << (left + right) / 2 << " in array of size " << arr.size());
     int pivot = arr[(left + right) / 2];

@@ -103,6 +103,35 @@ lbool SatSolver::solve(int n) {
     return ret;
 }
 
+void SatSolver::quickSort(int left, int right) {
+    int i = left, j = right;
+    Lit tmp;
+    assert((left + right) / 2 >= 0);
+    assert_msg((left + right) / 2 < assumptions.size(), "Accessing element " << (left + right) / 2 << " in array of size " << assumptions.size());
+    double pivot = activity[var(assumptions[(left + right) / 2])];
+
+    /* partition */
+    while (i <= j) {
+        while (activity[var(assumptions[i])] < pivot)
+              i++;
+        while (activity[var(assumptions[j])] > pivot)
+              j--;
+        if (i <= j) {
+              tmp = assumptions[i];
+              assumptions[i] = assumptions[j];
+              assumptions[j] = tmp;
+              i++;
+              j--;
+        }
+    };
+
+    /* recursion */
+    if (left < j)
+        quickSort(left, j);
+    if (i < right)
+        quickSort(i, right);
+}
+
 void SatSolver::solve_() {
     if(!ok) { status = l_False; return; }
 
@@ -113,6 +142,7 @@ void SatSolver::solve_() {
     while(status == l_Undef) {
 //        cancelUntil(0);
 //        shuffle(assumptions);
+//        if(sortAssumptions && assumptions.size() > 1 && curr_restarts % 100 == 0) { cancelUntil(0); quickSort(0, assumptions.size()-1); }
         status = search(0);
         if(!withinBudget()) break;
         curr_restarts++;

@@ -55,6 +55,7 @@ public:
     int64_t processObjectFunctions();
     
     void setMinObjectFunction(int64_t min);
+    int64_t analyzeConflict();
     void updateLowerBound();
     
     virtual lbool solve();
@@ -69,6 +70,7 @@ private:
     void search_alg_bb();
     void search_alg_binary();
     void search_alg_progression();
+    void search_alg_linear_unsat_sat();
 };
 
 

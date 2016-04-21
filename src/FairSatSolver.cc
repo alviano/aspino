@@ -19,7 +19,7 @@
 
 #include <core/Dimacs.h>
 
-Glucose::EnumOption option_fairsat_alg("FAIRSAT", "fairsat-alg", "Set search algorithm.", "bb|binary|progression");
+Glucose::EnumOption option_fairsat_alg("FAIRSAT", "fairsat-alg", "Set search algorithm.", "bb|linear-unsat-sat|binary|progression");
 Glucose::BoolOption option_fairsat_printmodel("FAIRSAT", "fairsat-print-model", "Print optimal model if found.", true);
 
 namespace aspino {
@@ -54,6 +54,7 @@ void ObjectFunction::init(vec<Lit>& lits_, vec<int64_t>& coeffs_) {
 
 FairSatSolver::FairSatSolver() : PseudoBooleanSolver() {
     if(strcmp(option_fairsat_alg, "bb") == 0) search_alg = &FairSatSolver::search_alg_bb;
+    else if(strcmp(option_fairsat_alg, "linear-unsat-sat") == 0) search_alg = &FairSatSolver::search_alg_linear_unsat_sat;
     else if(strcmp(option_fairsat_alg, "binary") == 0) search_alg = &FairSatSolver::search_alg_binary;
     else if(strcmp(option_fairsat_alg, "progression") == 0) search_alg = &FairSatSolver::search_alg_progression;
     else assert(0);
@@ -172,10 +173,31 @@ void FairSatSolver::setMinObjectFunction(int64_t min) {
     for(int i = 0; i < objectFunctions.size(); i++) {
         int64_t mask = objectFunctions[i]->sumOfInCoeffs - min;
         assert(mask >= 0);
-        for(int j = 0; j < objectFunctions[i]->selectorVars.size(); j++) {
+        for(int j = objectFunctions[i]->selectorVars.size() - 1; j >= 0; j--) {
+//        for(int j = 0; j < objectFunctions[i]->selectorVars.size(); j++) {
             assumptions.push(mkLit(objectFunctions[i]->selectorVars[j], (1ll << j) & mask));
         }
     }
+}
+
+int64_t FairSatSolver::analyzeConflict() {
+//    cout << assumptions << " " << conflict << endl;
+    int64_t max = INT64_MIN;
+    int k = conflict.size() - 1;
+    for(int i = 0; i < objectFunctions.size(); i++) {
+        int64_t sum = objectFunctions[i]->sumOfInCoeffs;
+        for(int j = objectFunctions[i]->selectorVars.size() - 1; j >= 0; j--) {
+//        for(int j = 0; j < objectFunctions[i]->selectorVars.size(); j++) {
+            if(k >= 0 && var(conflict[k]) == objectFunctions[i]->selectorVars[j]) k--;
+            else sum -= 1ll << j;;
+        }
+        if(sum > max) max = sum;
+//        cout << k << " " << sum << endl;
+    }
+//    cout << max << endl;
+//    static int count = 0; count++;
+//    if(count > 100) exit(1);
+    return max;
 }
 
 void FairSatSolver::updateLowerBound() {
@@ -223,6 +245,25 @@ void FairSatSolver::search_alg_bb() {
 //            cout << "c unsatisfied values:";
 //            for(int i = 0; i < objectFunctions.size(); i++) cout << " " << (objectFunctions[i]->sumOfInCoeffs - objectFunctions[i]->modelValue);
 //            cout << endl;
+        }
+        if(lowerbound == upperbound) break;
+    }
+}
+
+void FairSatSolver::search_alg_linear_unsat_sat() {
+    for(;;) {
+        setMinObjectFunction(upperbound);
+        PseudoBooleanSolver::solve();
+        if(status == l_False) {
+            cout << (upperbound - analyzeConflict() + 1) << endl;
+            upperbound = analyzeConflict() - 1;
+            cout << "c ub " << upperbound << endl;
+        }
+        else if(status == l_True) {
+            updateLowerBound();
+
+            cout << "o " << lowerbound << endl;
+            break;
         }
         if(lowerbound == upperbound) break;
     }

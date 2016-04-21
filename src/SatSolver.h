@@ -25,7 +25,7 @@ namespace aspino {
 
 class SatSolver : public AbstractSolver, protected Glucose::SimpSolver {
 public:
-    SatSolver() : inVars(0), status(l_Undef) { certifiedUNSAT = false; parsing = false;}
+    SatSolver() : inVars(0), status(l_Undef), sortAssumptions(false) { certifiedUNSAT = false; parsing = false;}
     virtual ~SatSolver() {}
     
     virtual void interrupt() { Glucose::SimpSolver::interrupt(); }
@@ -55,6 +55,7 @@ protected:
     virtual inline CRef morePropagate() { return CRef_Undef; }
     virtual inline void onCancel() {}
     
+    void quickSort(int left, int right);
     void solve_();
     lbool search(int nof_conflicts);
     inline void cancelUntil(int level) { Glucose::SimpSolver::cancelUntil(level); onCancel(); }
@@ -64,6 +65,7 @@ protected:
     int inVars;
     int inClauses;
     lbool status;
+    bool sortAssumptions;
 };
 
 } // namespace miniasp

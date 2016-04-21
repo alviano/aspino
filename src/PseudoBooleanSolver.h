@@ -127,9 +127,11 @@ protected:
     vec<bool> propagated;
     int nextToPropagate;
     
+protected:
+    static int64_t gcd(int64_t u, int64_t v);
+
 private:
     bool readConstraint(Glucose::StreamBuffer& in, WeightConstraint& wc);
-    static int64_t gcd(int64_t u, int64_t v);
 };
 
 } // namespace aspino

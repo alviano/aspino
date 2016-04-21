@@ -31,4 +31,11 @@ ostream& operator<<(ostream& o, const Lit& l) {
     return o << (sign(l) ? "~" : "") << (var(l)+1);
 }
 
+ostream& operator<<(ostream& o, const Clause& c) {
+    o << "[ ";
+    for(int i = 0; i < c.size(); i++)
+        o << c[i] << " ";
+    return o << "]";
+}
+
 } // namespace aspino
