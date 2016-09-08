@@ -486,7 +486,7 @@ void MaxSatSolver::solve_() {
     int64_t nextLimit;
     
     vec<vec<Lit>*> cores;
-    int cacheSize = 10;
+    int cacheSize = 10000000;
     
     vec<int> seen;
     int seenValue = 0;
@@ -577,7 +577,7 @@ void MaxSatSolver::solve_() {
                         if(min == -1 || core.size() < cores[min]->size()) min = i;
                     }
                     
-                    if(min == -1) {cout<<"SSSSS" << endl; exit(-1);}
+                    if(min == -1) return; //{cout<<"SSSSS" << endl; exit(-1);}
                     
                     cores[min]->moveTo(conflict);
                     progressionMinimize(computeConflictWeight());

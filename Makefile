@@ -77,6 +77,10 @@ static: $(BINARIES)
 	    strip $$bin-static; \
     done
 
+lib: $(BUILD_DIR)/aspino.a
+
+$(BUILD_DIR)/aspino.a: $(OBJS)
+	ar rcs $@ $(OBJS)
 
 ########## Tests
 include tests/Makefile.tests.inc

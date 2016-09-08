@@ -25,8 +25,29 @@ Glucose::BoolOption option_fairsat_printmodel("FAIRSAT", "fairsat-print-model", 
 namespace aspino {
 
 template<class B, class Solver>
+static void readGE(B& in, Solver& S, WeightConstraint& wc) {
+    int parsed_lit, var;
+    wc.clear();
+    int size = parseInt(in);
+    for(int i = 0; i < size; i++) {
+        parsed_lit = parseInt(in);
+        if (parsed_lit == 0) cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);
+        var = abs(parsed_lit)-1;
+        while (var >= S.nVars()) S.newVar();
+        wc.lits.push( (parsed_lit > 0) ? mkLit(var) : ~mkLit(var) );
+    }
+    for(int i = 0; i < size; i++) {
+        wc.coeffs.push(parseLong(in));
+        if(wc.coeffs.last() <= 0) cerr << "PARSE ERROR! The weights must be nonnegative." << endl, exit(3);
+    }
+    wc.bound = parseLong(in);
+    parsed_lit = parseInt(in);
+    if (parsed_lit != 0) cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);    
+}
+
+template<class B, class Solver>
 static void readObjFunc(B& in, Solver& S, vec<Lit>& lits, vec<int64_t>& coeffs) {
-    int     parsed_lit, var;
+    int parsed_lit, var;
     lits.clear();
     coeffs.clear();
     int size = parseInt(in);
@@ -72,6 +93,7 @@ void FairSatSolver::parse(gzFile in_) {
     
     vec<Lit> lits;
     vec<int64_t> coeffs;
+    WeightConstraint wc;
     int vars = 0;
     int count = 0;
     inClauses = 0;
@@ -102,6 +124,13 @@ void FairSatSolver::parse(gzFile in_) {
         }
         else if(*in == 'c')
             skipLine(in);
+        else if(eagerMatch(in, "ge")) {
+            count++;
+            skipWhitespace(in);
+            readGE(in, *this, wc);
+            addConstraint(wc);
+            morePropagate();
+        }
         else {
             count++;
             readClause(in, *this, lits);
