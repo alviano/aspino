@@ -143,6 +143,7 @@ void SatSolver::solve_() {
 //        cancelUntil(0);
 //        shuffle(assumptions);
 //        if(sortAssumptions && assumptions.size() > 1 && curr_restarts % 100 == 0) { cancelUntil(0); quickSort(0, assumptions.size()-1); }
+//        if(curr_restarts == 1000)break;
         status = search(0);
         if(!withinBudget()) break;
         curr_restarts++;
@@ -342,4 +343,4 @@ double SatSolver::luby(double y, int x) {
     return pow(y, seq);
 }
 
-} // namespace miniasp
+} // namespace aspino

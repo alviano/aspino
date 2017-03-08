@@ -40,6 +40,10 @@ public:
     void copyModel();
     void printModel() const;
     
+    inline void setAssumptions(vec<Lit>& lits) { lits.moveTo(assumptions); }
+    using Glucose::SimpSolver::value;
+    using Glucose::SimpSolver::model;
+    
     inline void nInVars(int value) { inVars = value; }
     inline int nInVars() const { return inVars; }
     
@@ -50,7 +54,12 @@ public:
     virtual inline void newVar() { Glucose::SimpSolver::newVar(); }
     using Glucose::SimpSolver::nVars;
     using Glucose::SimpSolver::addClause;
+    using Glucose::SimpSolver::setFrozen;
+    using Glucose::SimpSolver::conflict;
+    using Glucose::SimpSolver::level;
 
+    inline void cancelUntil(int level) { Glucose::SimpSolver::cancelUntil(level); onCancel(); }
+    
 protected:
     virtual inline CRef morePropagate() { return CRef_Undef; }
     virtual inline void onCancel() {}
@@ -58,7 +67,6 @@ protected:
     void quickSort(int left, int right);
     void solve_();
     lbool search(int nof_conflicts);
-    inline void cancelUntil(int level) { Glucose::SimpSolver::cancelUntil(level); onCancel(); }
     static double luby(double y, int x);
     void learnClauseFromModel();
     
