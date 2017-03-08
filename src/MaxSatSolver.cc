@@ -492,7 +492,7 @@ void MaxSatSolver::solve_() {
     int seenValue = 0;
 
     for(;;) {
-        quickSort(0, softLiterals.size()-1);
+        if(softLiterals.size() > 1) quickSort(0, softLiterals.size()-1);
         
         hardening();
         if(lowerbound == upperbound) return;
