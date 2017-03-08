@@ -25,6 +25,7 @@ using Glucose::vec;
 namespace aspino {
 
 class AdjacencyList;
+class WeightedAdjacencyList;
 
 class DepGraph {
 public:
@@ -37,6 +38,20 @@ public:
     
 private:
     AdjacencyList& arcs;
+};
+
+class UndirectedWeightedGraph {
+public:
+    UndirectedWeightedGraph();
+    ~UndirectedWeightedGraph();
+    
+    void add(int node);
+    void add(int from, int to);
+    void remove(int from, int to);
+    void sccs(vec<int>& atom2comp, vec<vec<int> >& components);
+    
+private:
+    WeightedAdjacencyList& arcs;
 };
 
 } // namespace aspino
