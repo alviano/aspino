@@ -17,8 +17,10 @@
 
 #include "main.h"
 
-Glucose::EnumOption option_mode("MAIN", "mode", "How to interpret input.\n", "asp|sat|maxsat|pbs|fairsat|ltl|tgds");
+Glucose::EnumOption option_mode("MAIN", "mode", "How to interpret input.\n", "asp|sat|maxsat|pbs|qbf|circumscription|fairsat|ltl|tgds");
 Glucose::IntOption option_n("MAIN", "n", "Number of desired solutions. Non-positive integers are interpreted as unbounded.\n", 1, Glucose::IntRange(0, INT32_MAX));
+
+Glucose::BoolOption option_print_model("MAIN", "print-model", "Print model if found.", true);
 
 Glucose::IntOption cpu_lim("MAIN", "cpu-lim","Limit on CPU time allowed in seconds.\n", INT32_MAX, Glucose::IntRange(0, INT32_MAX));
 Glucose::IntOption mem_lim("MAIN", "mem-lim","Limit on memory usage in megabytes.\n", INT32_MAX, Glucose::IntRange(0, INT32_MAX));
@@ -51,6 +53,10 @@ int postmain(int argc, char** argv) {
         solver = new MaxSatSolver();
     else if(strcmp(option_mode, "pbs") == 0)
         solver = new PseudoBooleanSolver();
+    else if(strcmp(option_mode, "qbf") == 0)
+        solver = new QBFSolver();
+    else if(strcmp(option_mode, "circumscription") == 0)
+        solver = new CircumscriptionSolver();
     else if(strcmp(option_mode, "fairsat") == 0)
         solver = new FairSatSolver();
     else if(strcmp(option_mode, "ltl") == 0)

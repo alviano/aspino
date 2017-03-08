@@ -22,6 +22,8 @@
 #include "SatSolver.h"
 #include "PseudoBooleanSolver.h"
 #include "MaxSatSolver.h"
+#include "2QBFSolver.h"
+#include "CircumscriptionSolver.h"
 #include "AspSolver.h"
 #include "FairSatSolver.h"
 #include "LTLSolver.h"
