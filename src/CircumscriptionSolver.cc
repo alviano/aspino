@@ -118,6 +118,7 @@ void CircumscriptionSolver::enumerate() {
     
     while(true) {
         assumptions.shrink_(assumptions.size() - nAss);
+        assert(assumptions.size() == nAss);
         for(int i = 0; i < branchingLits.size(); i++) assumptions.push(branchingLits[i]);
         
         PseudoBooleanSolver::solve();
@@ -133,7 +134,8 @@ void CircumscriptionSolver::enumerate() {
         }
         else if(status == l_False) {
             // backjump
-            while(branchingLits.size() > 0 && var(conflict.last()) != var(branchingLits.last())) {
+            Var v = conflict.size() > 0 ? var(conflict[0]) : -1;
+            while(branchingLits.size() > 0 && v != var(branchingLits.last())) {
                 branchingLits.pop();
                 branchingFlags.pop();
             }
