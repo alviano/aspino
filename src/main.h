@@ -22,6 +22,7 @@
 #include "SatSolver.h"
 #include "PseudoBooleanSolver.h"
 #include "MaxSatSolver.h"
+#include "PMaxSatSolver.h"
 #include "2QBFSolver.h"
 #include "CircumscriptionSolver.h"
 #include "AspSolver.h"

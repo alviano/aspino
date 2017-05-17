@@ -86,6 +86,13 @@ void CircumscriptionSolver::parse(gzFile in_) {
             
             if(option_circumscription_witnessess != 1) setFrozen(var, true);
         }
+        else if(*in == '+') {
+            ++in;
+            CardinalityConstraint cc;
+            cc.bound = parseLong(in);
+            readClause(in, *this, cc.lits);
+            addConstraint(cc);
+        }
         else if(*in == 'c')
             skipLine(in);
         else {

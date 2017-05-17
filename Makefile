@@ -26,10 +26,10 @@ BUILD_DIR = build/$(BUILD)
 
 GCC = g++
 CXX = $(GCC)
-CXXFLAGS = $(cxxflags.$(BUILD)) -Isrc/glucose-syrup -Wall -Wextra
+CXXFLAGS = $(cxxflags.$(BUILD)) -Isrc/glucose-syrup -Wall -Wextra -std=c++0x
 LINK = $(GCC)
 LINKFLAGS = $(linkflags.$(BUILD))
-LIBS = -lm -lz
+LIBS = -lm -lz -lpthread -pthread
 
 APPS = $(shell find $(SOURCE_DIR) -name '*.cpp')
 SRCS = $(shell find $(SOURCE_DIR) -name '*.cc')

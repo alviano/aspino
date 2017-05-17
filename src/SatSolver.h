@@ -25,7 +25,7 @@ namespace aspino {
 
 class SatSolver : public AbstractSolver, protected Glucose::SimpSolver {
 public:
-    SatSolver() : inVars(0), status(l_Undef), sortAssumptions(false) { certifiedUNSAT = false; parsing = false;}
+    SatSolver() : inVars(0), status(l_Undef) { certifiedUNSAT = false; parsing = false;}
     virtual ~SatSolver() {}
     
     virtual void interrupt() { Glucose::SimpSolver::interrupt(); }

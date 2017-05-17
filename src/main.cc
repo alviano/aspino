@@ -17,7 +17,7 @@
 
 #include "main.h"
 
-Glucose::EnumOption option_mode("MAIN", "mode", "How to interpret input.\n", "asp|sat|maxsat|pbs|qbf|circumscription|fairsat|ltl|tgds");
+Glucose::EnumOption option_mode("MAIN", "mode", "How to interpret input.\n", "asp|sat|maxsat|pmaxsat|pbs|qbf|circumscription|fairsat|ltl|tgds");
 Glucose::IntOption option_n("MAIN", "n", "Number of desired solutions. Non-positive integers are interpreted as unbounded.\n", 1, Glucose::IntRange(0, INT32_MAX));
 
 Glucose::BoolOption option_print_model("MAIN", "print-model", "Print model if found.", true);
@@ -51,6 +51,8 @@ int postmain(int argc, char** argv) {
         solver = new SatSolver();
     else if(strcmp(option_mode, "maxsat") == 0)
         solver = new MaxSatSolver();
+    else if(strcmp(option_mode, "pmaxsat") == 0)
+        solver = new PMaxSatSolver();
     else if(strcmp(option_mode, "pbs") == 0)
         solver = new PseudoBooleanSolver();
     else if(strcmp(option_mode, "qbf") == 0)
