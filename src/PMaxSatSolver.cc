@@ -88,7 +88,7 @@ void solveTask(void* solver_, void* task_) {
     msg.status = solver->solveTask();
     if(msg.status == l_True) {
         solver->updateUpperBound();
-        msg.upperbound = solver->myupperbound;
+        msg.upperbound = solver->upperbound;
     }
     else if(msg.status == l_False) {
         solver->cancelUntil(0);
@@ -96,6 +96,7 @@ void solveTask(void* solver_, void* task_) {
         solver->conflict.moveTo(msg.core);
     }
     
+    static_cast<PMaxSatSolver::Task*>(task_)->done_ = true;
     solver->add(msg);
 }
     
@@ -217,7 +218,7 @@ void PMaxSatSolver::parse(gzFile in_) {
         }
     }
     
-    if(count != inClauses) cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl, exit(3);
+//    if(count != inClauses) cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl, exit(3);
     
     inClauses = clauses.size();
 }
@@ -370,6 +371,7 @@ void PMaxSatSolver::updateUpperBound() {
         if(value(softLiterals[i]) == l_False) newupperbound += weights[var(softLiterals[i])];
     }
     if(newupperbound < upperbound) {
+        upperbound = newupperbound;
         myupperbound = newupperbound;
         copyModel();
         trace_(id, 200, "Model: " << model);
@@ -401,97 +403,6 @@ void PMaxSatSolver::trim() {
     if(counter % 2 == 1) for(int i = 0; i < assumptions.size(); i++) conflict[i] = ~assumptions[i];
     
     assert(conflict.size() > 1);
-}
-
-void PMaxSatSolver::shrink(int64_t limit) {
-    assert(decisionLevel() == 0);
-    if(conflict.size() <= 1) return;
-    
-    double cpuTime = Glucose::cpuTime() - lastCallCpuTime;
-    uint64_t budget = conflicts - lastConflict;
-    uint64_t budgetMin = budget / cpuTime;
-    if(budget > budget * 30 / cpuTime) budget = budget * 30 / cpuTime;
-    trace_(id, 10, "Minimize core of size " << conflict.size() << " (" << (conflicts - lastConflict) << " conflicts; " << cpuTime << " seconds; each check with budget " << budget << ")");
-    trim();
-    if(budget == 0) return;
-
-    vec<Lit> core;
-    conflict.moveTo(core);
-    
-    vec<Lit> allAssumptions;
-    for(int i = 0; i < core.size(); i++) allAssumptions.push(~core[i]);
-    
-    assumptions.clear();
-    const int progressionFrom = 1;
-    int progression = progressionFrom;
-    int fixed = 0;
-    while(lowerbound + limit < upperbound) {
-        if(fixed + progression >= allAssumptions.size()) {
-            if(progression == progressionFrom) break;
-            progression = progressionFrom;
-            fixed = assumptions.size();
-            if(budget > budgetMin) budget /= 2;
-            continue;
-        }
-
-        trace_(id, 15, "Minimize: progress to " << progression << "; fixed = " << fixed);
-        
-        int prec = assumptions.size();
-        for(int i = assumptions.size(); i < fixed + progression; i++) {
-            assert(i < allAssumptions.size());
-            assumptions.push(allAssumptions[i]);
-        }
-        
-        float sumLBD_ = sumLBD;
-        uint64_t conflictsRestarts_ = conflictsRestarts;
-        sumLBD = 0;
-        conflictsRestarts = 0;
-        setConfBudget(budget);
-        PseudoBooleanSolver::solve();
-        budgetOff();
-        sumLBD += sumLBD_;
-        conflictsRestarts += conflictsRestarts_;
-
-        if(status == l_False) {
-            trace_(id, 10, "Minimize: reduce to size " << conflict.size());
-            progression = progressionFrom;
-            if(budget > budgetMin) budget /= 2;
-            
-            assumptions.moveTo(core);
-            cancelUntil(0);
-            trim();
-            core.moveTo(assumptions);
-            conflict.moveTo(core);
-            
-            int j = 0;
-            for(int i = 0, k = core.size() - 1; i < prec; i++) {
-                if(k < 0) break;
-                if(assumptions[i] != ~core[k]) continue;
-                assumptions[j++] = assumptions[i];
-                k--;
-            }
-            assumptions.shrink_(assumptions.size() - j);
-            fixed = assumptions.size();
-            
-            j = 0;
-            for(int i = 0, k = core.size() - 1; i < allAssumptions.size(); i++) {
-                if(k < 0) break;
-                if(allAssumptions[i] != ~core[k]) continue;
-                allAssumptions[j++] = allAssumptions[i];
-                k--;
-            }
-            allAssumptions.shrink_(allAssumptions.size() - j);
-        }
-        else {
-            trace_(id, 20, (status == l_True ? "SAT!" : "UNDEF"));
-            progression *= 2;
-            if(status == l_True) {
-                updateUpperBound();
-            }
-        }
-        cancelUntil(0);
-    }
-    core.moveTo(conflict);
 }
 
 void PMaxSatSolver::processCore(int64_t limit) {
@@ -536,6 +447,7 @@ void PMaxSatSolver::stop(Task& task) {
     task.tSolve->join();
     delete task.tSolve;
     task.tSolve = NULL;
+    assert(task.done());
 
     solver->asynch_interrupt = false;
     freeSolvers.push(task.solverId);
@@ -575,6 +487,7 @@ lbool PMaxSatSolver::solve() {
     PseudoBooleanSolver::solve();
     if(status == l_False) { cout << "s UNSATISFIABLE" << endl; return l_False; }
     if(status == l_True) updateUpperBound();
+    cout << "c " << upperbound << " ub" << endl;
     cancelUntil(0);
 
     removeSoftLiteralsAtLevelZero();
@@ -588,6 +501,7 @@ lbool PMaxSatSolver::solve() {
         while(solvers[i]->nVars() < nVars()) {
             solvers[i]->newVar();
             solvers[i]->weights.push(0);
+            if(value(solvers[i]->nVars()-1) != l_Undef) solvers[i]->addClause(mkLit(solvers[i]->nVars()-1, value(solvers[i]->nVars()-1) == l_False));
         }
         
         vec<Lit> lits;
@@ -636,28 +550,31 @@ lbool PMaxSatSolver::solve() {
         assert(decisionLevel() == 0);
         if(assumptions.size() == 0 && upperbound != INT64_MAX) status = l_Undef;
         else {
+            vec<Lit> lits;
             if(core.size() == 0) {
                 int j = 0;
                 for(int i = 0; i < softSatUpTo && j < assumptions.size(); i++) if(assumptions[j] == soft[i]) j++;
                 softSatUpTo = j;
                 coreSatUpTo = softSatUpTo;
                 assumptions.moveTo(soft);
+                cout << "SOFTSATUPTO " << softSatUpTo << "/" << soft.size() << endl;
+                soft.copyTo(lits);
             }
             else {
-                soft.clear();
-                for(int i = core.size() - 1; i >= 0; i--) soft.push(~core[i]);
+                for(int i = core.size() - 1; i >= 0; i--) lits.push(~core[i]);
+                cout << "CORESATUPTO " << coreSatUpTo << "/" << core.size() << endl;
             }
             
             Task::minIdSat = Task::nextId;
             int m = coreSatUpTo - 1;
             int pr = 1;
-            while (m + pr < soft.size() - (core.size() == 0 ? 0 : 1)) {
+            while (m + pr < lits.size() - (core.size() == 0 ? 0 : 1)) {
                 tasks.push();
                 
                 int limit = m + pr + 1;
-                for(int j = 0; j < limit; j++) tasks.last().assumptions.push(soft[j]);
+                for(int j = 0; j < limit; j++) tasks.last().assumptions.push(lits[j]);
                 
-                if(m + 2 * pr >= soft.size() - (core.size() == 0 ? 0 : 1)) {
+                if(m + 2 * pr >= lits.size() - (core.size() == 0 ? 0 : 1)) {
                     m += pr;
                     pr = 1;
                 } else {
@@ -668,25 +585,43 @@ lbool PMaxSatSolver::solve() {
             assignTasks();
         }
         
+        bool debug = false;
+        int NEXT = tasks[0].id;
+        
         // handle msgs
         int64_t ub = upperbound;
         for(;;) {
             std::unique_lock<std::mutex> locker(lock);
             
-            if(msgs.size() == 0) {
-                bool stop_ = true;
+            if(msgs.size() == 0 || true) {
+                bool stop_ = msgs.size() == 0;
                 for(int i = 0; i < tasks.size(); i++) if(!tasks[i].done()) { stop_ = false; break; }
                 if(stop_) {
                     locker.unlock();
                     break;
                 }
-                noMsgs.wait(locker, [this](){ return msgs.size() > 0; });
+                if(debug) noMsgs.wait(locker, [this, NEXT](){ assignTasks(); for(list<Msg>::const_iterator it = msgs.begin(); it != msgs.end(); it++) if(it->id == NEXT) return true; return false; });
+                else noMsgs.wait(locker, [this](){ return msgs.size() > 0; });
             }
             
             trace_(id, 5, "Pop from " << msgs.size() << " msgs");
             for(list<Msg>::const_iterator it = msgs.begin(); it != msgs.end(); it++) trace_(id, 5, " >>> " << *it);
-            Msg msg = msgs.front();
-            msgs.pop_front();
+            Msg* msg_ = NULL;
+            if(debug) {
+                list<Msg>::iterator it;
+                for(it = msgs.begin(); it != msgs.end(); it++) if(it->id == NEXT) {
+                    break;
+                }
+                assert(it != msgs.end());
+                msg_ = new Msg(*it);
+                msgs.erase(it);
+                NEXT++;
+            }
+            else {
+                msg_ = new Msg(msgs.front());
+                msgs.pop_front();
+            }
+            Msg& msg = *msg_;
             for(list<Msg>::const_iterator it = msgs.begin(); it != msgs.end(); it++) trace_(id, 5, "after pop " << *it);
             locker.unlock();
             
@@ -695,8 +630,8 @@ lbool PMaxSatSolver::solve() {
             if(msg.level < Task::currLevel) { trace_(id, 20, "ignored level"); continue;} 
             
             if(msg.status == l_True) {
-                if(msg.id < Task::minIdSat) { trace_(id, 20, "ignored sat"); continue;} 
                 if(ub > msg.upperbound) { ub = msg.upperbound; assert_msg(ub >= lowerbound, msg); }
+                if(msg.id < Task::minIdSat) { trace_(id, 20, "ignored sat"); continue;} 
                 Task::minIdSat = msg.id;
                 if(core.size() == 0) {
                     assert_msg(softSatUpTo < msg.assumptions.size(), softSatUpTo << " " << msg.assumptions.size());
@@ -722,7 +657,7 @@ lbool PMaxSatSolver::solve() {
                 assert(freeSolvers.size() == solvers.size());
                 
                 if(core.size() == 0) {
-                    if(msg.core.size() == 0) return l_True; // TERMINA (potrebbe non terminare se i thread non sono demoni)
+                    assert(msg.core.size() > 0); //if(msg.core.size() == 0) return l_True; // TERMINA (potrebbe non terminare se i thread non sono demoni)
                     msg.core.moveTo(core);
                     
                     int j = core.size() - 1;
@@ -740,7 +675,9 @@ lbool PMaxSatSolver::solve() {
                 }
             }
         } // msgs
+        assert(msgs.size() == 0);
         
+        for(int i = 0; i < tasks.size(); i++) assert(tasks[i].done());
         tasks.clear();
         assert(freeSolvers.size() == solvers.size());
         
@@ -754,7 +691,7 @@ lbool PMaxSatSolver::solve() {
             
             trace_(id, 10, "Process core " << core);
             // TODO update softSatUpTo
-            softSatUpTo = 0;
+//            softSatUpTo = 0;
             
             for(int i = 0; i < solvers.size(); i++) {
                 core.copyTo(solvers[i]->conflict);
@@ -767,6 +704,9 @@ lbool PMaxSatSolver::solve() {
             cout << "o " << lowerbound << endl;
         }
         else {
+            // TODO update softSatUpTo
+            softSatUpTo = 0;
+            
             nextLimit = computeNextLimit(limit);
             if(nextLimit == limit) {
                 trace_(id, 4, (status == l_True ? "SAT!" : "Skip!") << " No other limit to try");

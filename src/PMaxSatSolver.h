@@ -24,6 +24,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <list>
+#include <utils/System.h>
 
 namespace aspino {
 
@@ -63,16 +64,17 @@ private:
     
     struct Task {
         friend ostream& operator<<(ostream& out, const Task& task) { return out << "[level=" << task.level << "; id=" << task.id << "; assumptions=" << task.assumptions << "]"; }
-        inline Task() : level(currLevel), id(nextId++), tSolve(NULL), solverId(-1) {}
+        inline Task() : level(currLevel), id(nextId++), tSolve(NULL), solverId(-1), done_(false) {}
 //        inline Task(int level_, int id_, vec<Lit>& ass) :level(level_), id(id_) { ass.moveTo(assumptions); }
         int level;
         int id;
         vec<Lit> assumptions;
         thread* tSolve;
         int solverId;
+        bool done_;
         
         inline bool assigned() const { return solverId != -1; }
-        inline bool done() const { return assigned() && tSolve == NULL; }
+        inline bool done() const { return done_; /*assigned() && tSolve == NULL;*/ }
         
         static int currLevel;
         static int nextId;
@@ -82,7 +84,7 @@ private:
     
     void stop(Task& task);
     void assignTasks();
-    inline lbool solveTask() { return PseudoBooleanSolver::solve(); }
+    inline lbool solveTask() { time_t t = time(0); lbool res = PseudoBooleanSolver::solve(); cout << difftime(time(0), t) << endl; return res; }
     
     struct Msg {
         friend ostream& operator<<(ostream& out, const Msg& msg) { return out << "[level=" << msg.level << "; id=" << msg.id << "; assumptions=" << msg.assumptions << "; status=" << msg.status << "; upperbound=" << msg.upperbound << "; core=" << msg.core << "]"; }
@@ -129,12 +131,9 @@ private:
     void updateUpperBound();
     
     void trim();
-    void shrink(int64_t weight);
     void processCore(int64_t limit);
     
     bool handleModel() const;
-    
-    inline void printTask() const { if(taskLevel >= 0 || true) cout << "l " << taskLevel << " " << taskId << " "; }
 };
 
 
