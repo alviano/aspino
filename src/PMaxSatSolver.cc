@@ -32,8 +32,6 @@ Glucose::IntOption option_threads("MAIN", "t", "Number of threads (used by PMaxS
 namespace aspino {
 
 int PMaxSatSolver::Task::currLevel = 0;
-int PMaxSatSolver::Task::nextId = 0;
-int PMaxSatSolver::Task::minIdSat = 0;
     
 static const int buffer_size = 1048576;
 
@@ -481,6 +479,17 @@ void PMaxSatSolver::add(const Msg& msg) {
     noMsgs.notify_one();
 }
 
+lbool PMaxSatSolver::solveTask() { 
+    time_t t = time(0); 
+    setConfBudget(solvers[0]->budget);
+    cout << "START ASS: " << assumptions.size() << endl;
+    lbool res = PseudoBooleanSolver::solve();
+    cout << "TIME: " << difftime(time(0), t) << "; ASS: " << assumptions.size() << endl;
+    budgetOff();
+    clearInterrupt();
+    return res; 
+}
+
 lbool PMaxSatSolver::solve() {
     assert_msg(weights.size() == nVars(), weights.size() << " " << nVars());
 
@@ -528,6 +537,8 @@ lbool PMaxSatSolver::solve() {
     int64_t limit = computeNextLimit(INT64_MAX);
     int64_t nextLimit;
     
+    budget = conflicts;
+    
     freeSolvers.clear();
     for(int i = 0; i < solvers.size(); i++) freeSolvers.push(i);
 
@@ -565,7 +576,6 @@ lbool PMaxSatSolver::solve() {
                 cout << "CORESATUPTO " << coreSatUpTo << "/" << core.size() << endl;
             }
             
-            Task::minIdSat = Task::nextId;
             int m = coreSatUpTo - 1;
             int pr = 1;
             while (m + pr < lits.size() - (core.size() == 0 ? 0 : 1)) {
@@ -586,21 +596,21 @@ lbool PMaxSatSolver::solve() {
         }
         
         bool debug = false;
-        int NEXT = tasks[0].id;
+        int NEXT = tasks[0].assumptions.size();
         
         // handle msgs
         int64_t ub = upperbound;
         for(;;) {
             std::unique_lock<std::mutex> locker(lock);
             
-            if(msgs.size() == 0 || true) {
+            if(msgs.size() == 0 || debug) {
                 bool stop_ = msgs.size() == 0;
                 for(int i = 0; i < tasks.size(); i++) if(!tasks[i].done()) { stop_ = false; break; }
                 if(stop_) {
                     locker.unlock();
                     break;
                 }
-                if(debug) noMsgs.wait(locker, [this, NEXT](){ assignTasks(); for(list<Msg>::const_iterator it = msgs.begin(); it != msgs.end(); it++) if(it->id == NEXT) return true; return false; });
+                if(debug) noMsgs.wait(locker, [this, NEXT](){ assignTasks(); for(list<Msg>::const_iterator it = msgs.begin(); it != msgs.end(); it++) if(it->assumptions.size() == NEXT) return true; return false; });
                 else noMsgs.wait(locker, [this](){ return msgs.size() > 0; });
             }
             
@@ -609,7 +619,7 @@ lbool PMaxSatSolver::solve() {
             Msg* msg_ = NULL;
             if(debug) {
                 list<Msg>::iterator it;
-                for(it = msgs.begin(); it != msgs.end(); it++) if(it->id == NEXT) {
+                for(it = msgs.begin(); it != msgs.end(); it++) if(it->assumptions.size() == NEXT) {
                     break;
                 }
                 assert(it != msgs.end());
@@ -627,12 +637,14 @@ lbool PMaxSatSolver::solve() {
             
             trace_(id, 10, msg);
             
-            if(msg.level < Task::currLevel) { trace_(id, 20, "ignored level"); continue;} 
+            assert(msg.level == Task::currLevel);
+//            if(msg.level < Task::currLevel) { trace_(id, 20, "ignored level"); continue;} 
             
             if(msg.status == l_True) {
                 if(ub > msg.upperbound) { ub = msg.upperbound; assert_msg(ub >= lowerbound, msg); }
-                if(msg.id < Task::minIdSat) { trace_(id, 20, "ignored sat"); continue;} 
-                Task::minIdSat = msg.id;
+                if(msg.assumptions.size() < (core.size() == 0 ? softSatUpTo : coreSatUpTo)) { trace_(id, 20, "ignored sat"); continue; }
+//                if(msg.id < Task::minIdSat) { trace_(id, 20, "ignored sat"); continue;} 
+//                Task::minIdSat = msg.id;
                 if(core.size() == 0) {
                     assert_msg(softSatUpTo < msg.assumptions.size(), softSatUpTo << " " << msg.assumptions.size());
                     softSatUpTo = msg.assumptions.size();
@@ -644,10 +656,11 @@ lbool PMaxSatSolver::solve() {
 
                 for(int i = 0; i < tasks.size(); i++) {
                     // TODO ottimizzare
-                    if(tasks[i].id <= msg.id) { stop(tasks[i]); assert(!solvers[tasks[i].solverId]->asynch_interrupt); }
+                    if(tasks[i].assumptions.size() <= msg.assumptions.size()) { stop(tasks[i]); assert(!solvers[tasks[i].solverId]->asynch_interrupt); }
                 }
                 
                 assignTasks();
+                if(freeSolvers.size() > 0 && tasks.size() > solvers.size()) for(int i = 0; i < tasks.size(); i++) stop(tasks[i]);
             }
             else if(msg.status == l_False) {
                 if(core.size() != 0 && msg.core.size() >= core.size()) { trace_(id, 10, "ignored unsat"); continue;}
@@ -673,6 +686,13 @@ lbool PMaxSatSolver::solve() {
                     
                     msg.core.moveTo(core);
                 }
+            }
+            else {
+                for(int i = 0; i < tasks.size(); i++) {
+                    if(tasks[i].assumptions.size() == msg.assumptions.size()) { stop(tasks[i]); assert(!solvers[tasks[i].solverId]->asynch_interrupt); break; }
+                }
+                assignTasks();
+                if(freeSolvers.size() > 0 && tasks.size() > solvers.size()) for(int i = 0; i < tasks.size(); i++) stop(tasks[i]);
             }
         } // msgs
         assert(msgs.size() == 0);
@@ -703,10 +723,7 @@ lbool PMaxSatSolver::solve() {
             
             cout << "o " << lowerbound << endl;
         }
-        else {
-            // TODO update softSatUpTo
-            softSatUpTo = 0;
-            
+        else if(softSatUpTo == soft.size()) {
             nextLimit = computeNextLimit(limit);
             if(nextLimit == limit) {
                 trace_(id, 4, (status == l_True ? "SAT!" : "Skip!") << " No other limit to try");
@@ -716,6 +733,10 @@ lbool PMaxSatSolver::solve() {
             
             trace_(id, 4, (status == l_True ? "SAT!" : "Skip!") << " Decrease limit to " << nextLimit);
             limit = nextLimit;
+        }
+        else {
+            budget *= 2;
+            cout << "budget " << budget << endl;
         }
         
     }  // primo for

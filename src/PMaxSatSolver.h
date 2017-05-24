@@ -63,11 +63,10 @@ private:
     vec<int64_t> weights;
     
     struct Task {
-        friend ostream& operator<<(ostream& out, const Task& task) { return out << "[level=" << task.level << "; id=" << task.id << "; assumptions=" << task.assumptions << "]"; }
-        inline Task() : level(currLevel), id(nextId++), tSolve(NULL), solverId(-1), done_(false) {}
+        friend ostream& operator<<(ostream& out, const Task& task) { return out << "[level=" << task.level << "; assumptions=" << task.assumptions << "]"; }
+        inline Task() : level(currLevel), tSolve(NULL), solverId(-1), done_(false) {}
 //        inline Task(int level_, int id_, vec<Lit>& ass) :level(level_), id(id_) { ass.moveTo(assumptions); }
         int level;
-        int id;
         vec<Lit> assumptions;
         thread* tSolve;
         int solverId;
@@ -77,22 +76,19 @@ private:
         inline bool done() const { return done_; /*assigned() && tSolve == NULL;*/ }
         
         static int currLevel;
-        static int nextId;
-        static int minIdSat;
     };
     vec<Task> tasks;
     
     void stop(Task& task);
     void assignTasks();
-    inline lbool solveTask() { time_t t = time(0); lbool res = PseudoBooleanSolver::solve(); cout << difftime(time(0), t) << endl; return res; }
+    lbool solveTask();
     
     struct Msg {
-        friend ostream& operator<<(ostream& out, const Msg& msg) { return out << "[level=" << msg.level << "; id=" << msg.id << "; assumptions=" << msg.assumptions << "; status=" << msg.status << "; upperbound=" << msg.upperbound << "; core=" << msg.core << "]"; }
-        inline Msg() : level(-1), id(-1), status(l_Undef), upperbound(INT64_MAX) {}
-        inline Msg(const Task& task) : level(task.level), id(task.id), status(l_Undef), upperbound(INT64_MAX) { task.assumptions.copyTo(assumptions); }
-        inline Msg(const Msg& init) : level(init.level), id(init.id), status(init.status), upperbound(init.upperbound) { init.assumptions.copyTo(assumptions); init.core.copyTo(core); }
+        friend ostream& operator<<(ostream& out, const Msg& msg) { return out << "[level=" << msg.level << "; assumptions=" << msg.assumptions << "; status=" << msg.status << "; upperbound=" << msg.upperbound << "; core=" << msg.core << "]"; }
+        inline Msg() : level(-1), status(l_Undef), upperbound(INT64_MAX) {}
+        inline Msg(const Task& task) : level(task.level), status(l_Undef), upperbound(INT64_MAX) { task.assumptions.copyTo(assumptions); }
+        inline Msg(const Msg& init) : level(init.level), status(init.status), upperbound(init.upperbound) { init.assumptions.copyTo(assumptions); init.core.copyTo(core); }
         int level;
-        int id;
         vec<Lit> assumptions;
         lbool status;
         vec<Lit> core;
@@ -104,6 +100,8 @@ private:
     friend void solveTask(void* solver_, void* task_);
     
     thread* tSolve;
+    
+    int64_t budget;
     
     uint64_t lastConflict;
     uint64_t lastPropagation;
