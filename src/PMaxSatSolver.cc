@@ -173,42 +173,21 @@ void PMaxSatSolver::addWeightedClause(vec<Lit>& lits, int64_t weight) {
     setFrozen(var(soft), true);
 }
     
-void PMaxSatSolver::parse(gzFile) {
-    
-//    cout << "c Interpreter is online!" << endl;
-//    cout << "c" << endl;
-//    cout << "c For the master process, start with a WDIMACS terminated by 'r'." << endl;
-//    cout << "c After simplification, the theory is printed in DIMCAS. Soft literals are listed in a line starting with 'S' and their weights in a list starting with 'W'." << endl;
-//    cout << "c If the instance has an unsatisfiable core, it will be printed with a line starting with 'C'." << endl;
-//    cout << "c A shorter unsatisfiable core is then read from a line starting with 'C'." << endl;
-//    cout << "c Possibly, an upper bound can be also provided by a line starting with 'u'." << endl;
-//    cout << "c To continue the computation, use 'r'." << endl;
-//    cout << "c The process is repeated until an optimum model is found." << endl;
-//    cout << "c" << endl;
-//    cout << "c For slave processes, start with 'p slave VARS ID', and a DIMACS terminated by a list of soft literals (lines started by 'S' and 'W')." << endl;
-//    cout << "c A conjunctive query can be performed (on soft literals) by a line starting with 'q' and terminated by 0." << endl;
-//    cout << "c The output of the query is either an unsatisfiable core (line started by 'C'), or true (line 't') and possibly an upper bound (line started by 'u')." << endl;
-//    cout << "c The model associated with the best upper bound is cached, and can be printed by writing 'P'." << endl;
-//    cout << "c The query can be aborted by writing 'a'." << endl;
-    
-    
-    LineStream in;
+void PMaxSatSolver::parse(gzFile in_) {
+    Glucose::StreamBuffer in(in_);
 
     upperbound = INT64_MAX;
 
     bool weighted = false;
     int64_t top = -1;
     int64_t weight = 1;
-    bool slave = false;
     
     vec<Lit> lits;
     int vars = 0;
     int count = 0;
-    while(in.readline()) {
-//        cout << "c echo: " << in.buf;
-//        cout.flush();
+    for(;;) {
         Glucose::skipWhitespace(in);
-        assert(*in != EOF);
+        if(*in == EOF) break;
         if(*in == 'p') {
             ++in;
             if(*in != ' ') cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);
@@ -228,48 +207,12 @@ void PMaxSatSolver::parse(gzFile) {
                 cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);
             }
         }
-        else if(*in == 'C') {
-//            vec<Lit> lits;
-//            conflict.moveTo(lits);
-            
-//            freeSolveThread(true);
-            ++in;
-            cancelUntil(0);
-            readClause(in, *this, conflict);
-            assert(conflict.size() > 0);
-            
-//            int j = 0;
-//            for(int i = 0; i < lits.size() && j < conflict.size(); i++) {
-//                if(lits[i] == conflict[j]) j++;
-//            }
-//            if(id == 0 && j != conflict.size()) cerr << "size = " << conflict.size() << "; j = " << j, exit(-1);
-
-            int64_t w = computeConflictWeight();
-            if(w <= 0) cerr << "Received unsat core of weight " << w << endl, exit(-1);
-            updateLowerBound(w);
-            
-            trace_(id, 4, "Analyze conflict of size " << conflict.size() << " and weight " << w);
-            processCore(w);           
-            assert(weights.size() == nVars());
-            hardening();
-        }
-        else if(*in == 'u') {
-//            freeSolveThread(false);
-//            ++in;
-//            int p = Glucose::parseInt(in);
-//            int64_t b = parseLong(in);
-//            if(b < upperbound) { 
-//                upperboundOwner = p; 
-//                upperbound = b;
-//                hardening();
-//            }
-        }
         else if(*in == 'c') continue;
         else {
             count++;
             if(weighted) weight = parseLong(in);
             readClause(in, *this, lits);
-            if(weight == top || slave) addClause_(lits);
+            if(weight == top) addClause_(lits);
             else addWeightedClause(lits, weight);
         }
     }
