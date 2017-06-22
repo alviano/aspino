@@ -187,7 +187,7 @@ int64_t FairSatSolver::processObjectFunctions() {
         
         int64_t n = floor(log2(wc.bound));
         for(int64_t i = 0, w = 1; i <= n; i++, w *= 2) {
-            newVar();
+            newVar(); setFrozen(nVars()-1, true);
             wc.lits.push(~mkLit(nVars()-1));
             wc.coeffs.push(w);
             objF.selectorVars.push(nVars()-1);
