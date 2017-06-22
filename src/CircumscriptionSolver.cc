@@ -288,6 +288,116 @@ void CircumscriptionSolver::one() {
     addConstraint(cc);
 }
 
+void CircumscriptionSolver::pmres() {
+    assert(decisionLevel() == 0);
+
+    Lit prec = lit_Undef;
+    vec<Lit> lits;
+    while(conflict.size() > 0) {
+        assert(!removed[var(conflict.last())]);
+        removed[var(conflict.last())] = true;
+        
+        if(prec == lit_Undef) prec = ~conflict.last();
+        else {
+            // disjunction
+            newVar(); setFrozen(nVars()-1, true);
+            removed.push(false);
+            softLits.push(mkLit(nVars()-1));
+            nonInputSoftLits.push(softLits.last());
+            lits.push(prec);
+            lits.push(~conflict.last());
+            lits.push(mkLit(nVars()-1, true));
+            addClause(lits);
+            lits.clear();
+            addClause(~prec, mkLit(nVars()-1));
+            addClause(conflict.last(), mkLit(nVars()-1));
+            
+            if(conflict.size() > 1) {
+                // conjunction
+                newVar();
+                removed.push(false);
+                addClause(prec, mkLit(nVars()-1, true));
+                addClause(~conflict.last(), mkLit(nVars()-1, true));
+                lits.push(~prec);
+                lits.push(conflict.last());
+                lits.push(mkLit(nVars()-1));
+                addClause(lits);
+                lits.clear();
+                
+                prec = mkLit(nVars()-1);
+            }
+        }
+        
+        conflict.pop();
+    }
+    assert(conflict.size() == 0);
+    
+    int newLen = 0;
+    for(int i = 0; i < softLits.size(); i++) {
+        softLits[newLen] = softLits[i];
+        if(!removed[var(softLits[i])]) newLen++;
+    }
+    softLits.shrink(softLits.size()-newLen);
+}
+
+void CircumscriptionSolver::kdyn() {
+    assert(decisionLevel() == 0);
+    
+    const int b = conflict.size() <= 2 ? 8 : ceil(log10(conflict.size()) * 16);
+    const int m = ceil(2.0 * conflict.size() / (b-2.0));
+    const int N = ceil(
+            (
+                conflict.size()         // literals in the core
+                + conflict.size() - 1   // new soft literals
+                + 2 * (m-1)             // new connectors
+            ) / (m * 2.0)
+        );
+
+    Lit prec = lit_Undef;
+    while(conflict.size() > 0) {
+        CardinalityConstraint cc;
+        
+        int i = N;
+        if(prec != lit_Undef) { cc.lits.push(prec); i--; }
+        for(; i > 0; i--) {
+            if(conflict.size() == 0) break;
+            assert(!removed[var(conflict.last())]);
+            removed[var(conflict.last())] = true;
+            cc.lits.push(~conflict.last());
+            conflict.pop();
+        }
+        assert(cc.size() > 0);
+        cc.bound = cc.size()-1;
+        
+        if(conflict.size() > 0) cc.bound++;
+
+        for(i = 0; i < cc.bound; i++) {
+            newVar();
+            setFrozen(nVars()-1, true);
+            removed.push(false);
+            cc.lits.push(~mkLit(nVars()-1));
+            if(i != 0) addClause(~mkLit(nVars()-2), mkLit(nVars()-1)); // symmetry breaker
+            if(i == 0 && conflict.size() > 0) { 
+                prec = mkLit(nVars()-1);
+            }
+            else {
+                softLits.push(mkLit(nVars()-1));
+                nonInputSoftLits.push(softLits.last());
+            }
+        }
+        
+        addConstraint(cc);
+    }
+    assert(conflict.size() == 0);
+    
+    int newLen = 0;
+    for(int i = 0; i < softLits.size(); i++) {
+        softLits[newLen] = softLits[i];
+        if(!removed[var(softLits[i])]) newLen++;
+    }
+    softLits.shrink(softLits.size()-newLen);
+}
+
 lbool CircumscriptionSolver::sat() const {
     cerr << "c solving end" << endl;
     return l_True;
@@ -319,9 +429,10 @@ lbool CircumscriptionSolver::solve(int n) {
         if(status == l_False) {
             if(conflict.size() == 0) break;
             cancelUntil(0);
-            //cout << "CORE " << conflict << endl;
             shrink();
             one();
+            //pmres();
+            //kdyn();
             continue;
         }
         

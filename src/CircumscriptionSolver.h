@@ -52,6 +52,8 @@ private:
     void trim();
     void shrink();
     void one();
+    void kdyn();
+    void pmres();
     
     lbool sat() const;
     lbool unsat() const;
