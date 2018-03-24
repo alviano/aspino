@@ -48,7 +48,8 @@ private:
     void onComputedModel();
     void extendModel();
     
-    void enumerate();
+    void (CircumscriptionSolver::*enumerate)();
+    void enumerateByAssumption();
     void enumerateByBlockingClauses();
     void trim();
     void shrink();

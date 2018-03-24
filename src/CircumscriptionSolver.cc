@@ -23,11 +23,15 @@
 extern Glucose::BoolOption option_print_model;
 
 Glucose::IntOption option_circumscription_witnessess("CIRCUMSCRIPTION", "circ-wit", "Number of desired witnesses for each solution. Non-positive integers are interpreted as unbounded.\n", 1, Glucose::IntRange(0, INT32_MAX));
+Glucose::EnumOption option_circumscription_enumeration("CIRCUMSCRIPTION", "circ-enumeration", "Enumeration algorithm for witnesses.\n", "assumptions|blocking-clauses");
 
 namespace aspino {
 
 CircumscriptionSolver::CircumscriptionSolver() : PseudoBooleanSolver() {
     setIncrementalMode();
+    if(strcmp(option_circumscription_enumeration, "assumptions") == 0) enumerate = &CircumscriptionSolver::enumerateByAssumption;
+    else if(strcmp(option_circumscription_enumeration, "blocking-clauses") == 0) enumerate = &CircumscriptionSolver::enumerateByBlockingClauses;
+    else assert(0);
 }
 
 CircumscriptionSolver::~CircumscriptionSolver() {
@@ -114,7 +118,7 @@ void CircumscriptionSolver::interrupt() {
     this->exit(1);
 }
 
-void CircumscriptionSolver::enumerate() {
+void CircumscriptionSolver::enumerateByAssumption() {
     cancelUntil(0);
     
     for(int i = 0; i < nonInputSoftLits.size(); i++) assumptions.push(~nonInputSoftLits[i]);
@@ -139,7 +143,7 @@ void CircumscriptionSolver::enumerate() {
             
             onComputedModel();
             if(computedModels == requiredModels) break;
-            if(++witnessess == requiredWitnesses) break;
+            if(++witnesses == requiredWitnesses) break;
         }
         else if(status == l_False) {
             // backjump
@@ -180,7 +184,7 @@ void CircumscriptionSolver::enumerateByBlockingClauses() {
  
         onComputedModel();
         if(computedModels == requiredModels) break;
-        if(++witnessess == requiredWitnesses) break;
+        if(++witnesses == requiredWitnesses) break;
         
         assert(blockingClause.size() == 0);
         for(int i = 0; i < nCLits(); i++) blockingClause.push(value(getCLit(i)) == l_True ? ~getCLit(i) : getCLit(i));
@@ -475,7 +479,7 @@ lbool CircumscriptionSolver::solve(int n) {
             for(int i = 0; i < nCLits(); i++) assumptions.push(value(getCLit(i)) == l_True ? getCLit(i) : ~getCLit(i));
             for(int i = 0; i < nOLits(); i++) assumptions.push(value(getOLit(i)) == l_True ? getOLit(i) : ~getOLit(i));
             cerr << "c enumerate start" << endl;
-            enumerate();
+            (this->*enumerate)();
             cerr << "c enumerate end" << endl;
         }
         if(computedModels == requiredModels) break;
