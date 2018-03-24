@@ -73,7 +73,7 @@ void ObjectFunction::init(vec<Lit>& lits_, vec<int64_t>& coeffs_) {
     coeffs_.moveTo(coeffs);
 }
 
-FairSatSolver::FairSatSolver() : PseudoBooleanSolver() {
+FairSatSolver::FairSatSolver() : PseudoBooleanSolver(), lowerbound(-1) {
     if(strcmp(option_fairsat_alg, "bb") == 0) search_alg = &FairSatSolver::search_alg_bb;
     else if(strcmp(option_fairsat_alg, "linear-unsat-sat") == 0) search_alg = &FairSatSolver::search_alg_linear_unsat_sat;
     else if(strcmp(option_fairsat_alg, "binary") == 0) search_alg = &FairSatSolver::search_alg_binary;
@@ -124,6 +124,13 @@ void FairSatSolver::parse(gzFile in_) {
         }
         else if(*in == 'c')
             skipLine(in);
+        else if(*in == 'o') {
+            ++in;
+            if(*in != ' ') cerr << "PARSE ERROR! Unexpected char: " << static_cast<char>(*in) << endl, exit(3);
+            ++in;
+            
+            lowerbound = parseLong(in) - 1;
+        }
         else if(eagerMatch(in, "ge")) {
             count++;
             skipWhitespace(in);
@@ -245,8 +252,6 @@ void FairSatSolver::updateLowerBound() {
 }
 
 lbool FairSatSolver::solve() {
-    lowerbound = -1;
-    
     cout << "c searching in [" << lowerbound << ".." << upperbound << "]" << endl;
     (this->*search_alg)();
     if(lowerbound == -1)
