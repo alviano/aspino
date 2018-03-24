@@ -123,6 +123,7 @@ void CircumscriptionSolver::enumerate() {
     vec<Lit> branchingLits;
     vec<bool> branchingFlags;
     
+    int witnesses = 0;
     while(true) {
         assumptions.shrink_(assumptions.size() - nAss);
         assert(assumptions.size() == nAss);
@@ -138,6 +139,7 @@ void CircumscriptionSolver::enumerate() {
             
             onComputedModel();
             if(computedModels == requiredModels) break;
+            if(++witnessess == requiredWitnesses) break;
         }
         else if(status == l_False) {
             // backjump
@@ -161,6 +163,31 @@ void CircumscriptionSolver::enumerate() {
         branchingFlags[branchingFlags.size()-1] = true;
         
         cancelUntil(branchingLits.size()-1);
+    }
+}
+
+void CircumscriptionSolver::enumerateByBlockingClauses() {
+    cancelUntil(0);
+    
+    for(int i = 0; i < nonInputSoftLits.size(); i++) assumptions.push(~nonInputSoftLits[i]);
+    
+    vec<Lit> blockingClause;
+    int witnesses = 0;
+    while(true) {
+        PseudoBooleanSolver::solve();
+        
+        if(status == l_False) break;
+ 
+        onComputedModel();
+        if(computedModels == requiredModels) break;
+        if(++witnessess == requiredWitnesses) break;
+        
+        assert(blockingClause.size() == 0);
+        for(int i = 0; i < nCLits(); i++) blockingClause.push(value(getCLit(i)) == l_True ? ~getCLit(i) : getCLit(i));
+        for(int i = 0; i < nOLits(); i++) if(value(getOLit(i)) == l_False) blockingClause.push(getOLit(i));
+        cancelUntil(0);
+        addClause(blockingClause);
+        blockingClause.clear();
     }
 }
 

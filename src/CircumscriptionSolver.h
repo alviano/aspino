@@ -49,6 +49,7 @@ private:
     void extendModel();
     
     void enumerate();
+    void enumerateByBlockingClauses();
     void trim();
     void shrink();
     void one();
