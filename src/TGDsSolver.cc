@@ -26,16 +26,15 @@ namespace aspino {
 
 TGDsSolver::Listener TGDsSolver::defaultListener;
     
-static const int buffer_size = 1048576;
-    
 class LineStream {
 private:    
     gzFile        in;
     int           pos;
 
 public:
-    char buf[buffer_size];
-    explicit LineStream(gzFile i) : in(i), pos(0) {}
+    char* buf;
+    explicit LineStream(gzFile i) : in(i), pos(0) { buf = new char[1048576]; }
+    ~LineStream() { delete[] buf; }
 
     bool readline() { 
         pos = 0;
@@ -65,6 +64,7 @@ void TGDsSolver::parse(gzFile in_) {
     while(in.readline()) {
         cout << "c echo: " << in.buf;
         cout.flush();
+        cout << in.operator *() << endl;
         Glucose::skipWhitespace(in);
         assert(*in != EOF);
         if(*in == 'p') {
@@ -97,10 +97,11 @@ void TGDsSolver::parse(gzFile in_) {
 void TGDsSolver::disprove() {
     assert(decisionLevel() == 0);
     
-    cout << "Number of candidates: " << candidates.size() << endl;
-    cout << "Number of assumptions: " << assumptions.size() << endl;
-    
+//    cout << "Number of candidates: " << candidates.size() << endl;
+//    cout << "Number of assumptions: " << assumptions.size() << endl;
+//    
 //    cout << "VARS: " << nVars() << endl;
+//    for(int i = 0; i < nVars(); i++) cout << mkLit(i) << value(i) << isEliminated(i) << " "; cout << endl; 
 //    for(int i = 0; i < clauses.size(); i++) {
 //        Clause& clause = ca[clauses[i]];
 //        cout << clause << endl;
@@ -111,11 +112,12 @@ void TGDsSolver::disprove() {
     vec<lbool> flagCandidates(candidates.size(), l_Undef);
     
     for(int i = 0; i < candidates.size(); i++) {
-        if(value(candidates[i]) != l_Undef && level(var(candidates[i])) == 0) continue;
+        if(value(candidates[i]) != l_Undef /*&& level(var(candidates[i])) == 0*/) continue;
         if(flagCandidates[i] != l_Undef) continue;
         
         assumptions.push(~candidates[i]);
         solve_();
+//        cout << "SOLVE WITH " << assumptions << " : " << status << endl;
         if(status == l_True) {
             for(int j = 0; j < candidates.size(); j++)
                 if(value(candidates[j]) != l_True) {

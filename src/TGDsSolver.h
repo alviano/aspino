@@ -46,7 +46,7 @@ public:
     virtual void parse(gzFile in);
     virtual lbool solve() { return SatSolver::solve(); }
     virtual lbool solve(int) { return l_True; }
-
+    
 private:
     vec<Lit> candidates;
     Listener* listener;
