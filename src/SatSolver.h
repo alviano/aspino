@@ -74,6 +74,10 @@ protected:
     int inClauses;
     lbool status;
     bool sortAssumptions;
+    
+private:
+    lbool enumerateByBlockingClauses(int n);
+    lbool enumerateByAssumption(int n);
 };
 
 } // namespace miniasp

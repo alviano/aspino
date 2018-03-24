@@ -31,7 +31,7 @@ public:
     virtual void interrupt();
     
     virtual void parse(gzFile in);
-    virtual bool eliminate(bool) { return SatSolver::eliminate(false); } 
+    virtual bool eliminate(bool turn_off_elim) { return SatSolver::eliminate(turn_off_elim); } 
     
     virtual lbool solve() { return solve(1); }
     virtual lbool solve(int);

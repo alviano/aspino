@@ -26,6 +26,11 @@
 
 using namespace std;
 
+extern Glucose::IntOption option_n;
+extern Glucose::BoolOption option_print_model;
+
+Glucose::EnumOption option_sat_enumeration("SAT", "sat-enumeration", "Enumeration algorithm.\n", "assumptions|blocking-clauses");
+
 namespace aspino {
 
 void SatSolver::parse(gzFile in_) {
@@ -61,6 +66,10 @@ void SatSolver::parse(gzFile in_) {
     if(count != clauses)
         cerr << "WARNING! DIMACS header mismatch: wrong number of clauses." << endl;
     inVars = nVars();
+    
+    if(option_n != 1) {
+        for(int i = 0; i < nVars(); i++) setFrozen(i, true);
+    }
 }
 
 lbool SatSolver::solve() {
@@ -75,6 +84,13 @@ lbool SatSolver::solve() {
 }
 
 lbool SatSolver::solve(int n) {
+    if(strcmp(option_sat_enumeration, "assumptions") == 0) return enumerateByAssumption(n);
+    if(strcmp(option_sat_enumeration, "blocking-clauses") == 0) return enumerateByBlockingClauses(n);
+    assert(0);
+    return l_Undef;
+}
+
+lbool SatSolver::enumerateByBlockingClauses(int n) {
     conflict.clear();
     cancelUntil(0);
 
@@ -91,17 +107,83 @@ lbool SatSolver::solve(int n) {
         assert(status == l_True);
         if(++count == 1) printStatus();
         
-        cout << "c Model " << count << endl;
-        copyModel();
-        printModel();
+        if(option_print_model) {
+            cout << "c Model " << count << endl;
+            copyModel();
+            printModel();
+        }
         ret = l_True;
         if(--n == 0) break;
         if(decisionLevel() == 0) break;
         learnClauseFromModel();
     }
     if(ret == l_False) printStatus();
+    cout << "c Models " << count << endl;
     return ret;
 }
+
+lbool SatSolver::enumerateByAssumption(int n) {
+    cancelUntil(0);
+    
+    int nAss = assumptions.size();
+    
+    vec<Lit> branchingLits;
+    vec<bool> branchingFlags;
+    
+    lbool ret = l_False;
+    
+    int count = 0;
+    while(true) {
+        assumptions.shrink_(assumptions.size() - nAss);
+        assert(assumptions.size() == nAss);
+        for(int i = 0; i < branchingLits.size(); i++) assumptions.push(branchingLits[i]);
+        
+        solve_();
+        
+        if(status == l_True) {
+            for(int i = assumptions.size(); i < decisionLevel(); i++) {
+                branchingLits.push(mainTrail(mainTrailLimit(i)));
+                branchingFlags.push(false);
+            }
+            
+            if(++count == 1) printStatus();
+            ret = l_True;
+            if(option_print_model) {
+                cout << "c Model " << count << endl;
+                copyModel();
+                printModel();
+            }
+            if(--n == 0) break;
+        }
+        else if(status == l_False) {
+            // backjump
+            Var v = conflict.size() > 0 ? var(conflict[0]) : -1;
+            while(branchingLits.size() > 0 && v != var(branchingLits.last())) {
+                branchingLits.pop();
+                branchingFlags.pop();
+            }
+        }
+    
+        // remove flipped branching literals
+        while(branchingLits.size() > 0 && branchingFlags.last()) {
+            branchingLits.pop();
+            branchingFlags.pop();
+        }
+    
+        if(branchingLits.size() == 0) break;
+
+        // flip top branching literal
+        branchingLits[branchingLits.size()-1] = ~branchingLits[branchingLits.size()-1];
+        branchingFlags[branchingFlags.size()-1] = true;
+        
+        cancelUntil(branchingLits.size()-1);
+    }
+    
+    cout << "c Models " << count << endl;
+    
+    return ret;
+}
+
 
 void SatSolver::quickSort(int left, int right) {
     int i = left, j = right;

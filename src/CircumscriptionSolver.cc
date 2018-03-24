@@ -175,7 +175,6 @@ void CircumscriptionSolver::enumerateByBlockingClauses() {
     
     for(int i = 0; i < nonInputSoftLits.size(); i++) assumptions.push(~nonInputSoftLits[i]);
     
-    vec<Lit> blockingClause;
     int witnesses = 0;
     while(true) {
         PseudoBooleanSolver::solve();
@@ -186,12 +185,8 @@ void CircumscriptionSolver::enumerateByBlockingClauses() {
         if(computedModels == requiredModels) break;
         if(++witnesses == requiredWitnesses) break;
         
-        assert(blockingClause.size() == 0);
-        for(int i = 0; i < nCLits(); i++) blockingClause.push(value(getCLit(i)) == l_True ? ~getCLit(i) : getCLit(i));
-        for(int i = 0; i < nOLits(); i++) if(value(getOLit(i)) == l_False) blockingClause.push(getOLit(i));
-        cancelUntil(0);
-        addClause(blockingClause);
-        blockingClause.clear();
+        if(decisionLevel() == 0) break;
+        learnClauseFromModel();
     }
 }
 
